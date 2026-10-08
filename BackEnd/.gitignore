@@ -1,0 +1,21 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (credenciales - NO subir al repositorio)
+.env
+.env.local
+.env.production
+
+# Logs y archivos del sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# Imágenes subidas por las administradoras
+uploads/
+
+# Correos de recuperación en modo desarrollo (contienen enlaces de reset)
+.mail-out/
+
+# Freebuff
+.freebuff/

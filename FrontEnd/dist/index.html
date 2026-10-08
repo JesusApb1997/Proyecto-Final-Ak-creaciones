@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AK Creaciones — Bisutería y Zarcillos artesanales</title>
+    <meta name="description" content="AK Creaciones — bisutería artesanal: zarcillos, collares, pulseras y anillos. Piezas únicas hechas a mano." />
+
+    <!-- ===== PWA: instalable (manifest + theme color + iconos) ===== -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1FA2C7" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AK Creaciones" />
+    <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />
+
+    <!-- Las imágenes viven en Supabase Storage: preconexión al CDN para cargar más rápido -->
+    <link rel="preconnect" href="https://ieuoeqdukphibffzqiar.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://ieuoeqdukphibffzqiar.supabase.co" />
+    <link rel="icon" type="image/png" href="/pwa/icon-192.png" />
+
+    <!-- Tipografías descargadas (Playfair Display + Poppins) -->
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <!-- Bootstrap Icons 1.11.3 (descargado) -->
+    <link rel="stylesheet" href="/icons/bootstrap-icons.min.css" />
+
+    <!-- ===== Pantalla de carga con la marca (se desvanece al montar React) ===== -->
+    <style>
+      #ak-splash{
+        position:fixed; inset:0; z-index:9999;
+        display:grid; place-items:center;
+        background:#FFF9F4;
+        transition:opacity .4s ease .1s, visibility .4s ease .1s;
+      }
+      #ak-splash.bye{ opacity:0; visibility:hidden; }
+      .ak-splash-inner{
+        display:flex; flex-direction:column; align-items:center; gap:.9rem;
+        animation:akSplashIn .55s cubic-bezier(.22,.8,.36,1) both;
+      }
+      .ak-splash-inner img{
+        width:96px; height:96px; object-fit:contain;
+        filter:drop-shadow(0 6px 18px rgba(42,162,199,.18));
+      }
+      .ak-splash-brand{
+        font-family:'Playfair Display',serif; font-size:1.55rem; color:#2B2233;
+        letter-spacing:.02em;
+      }
+      .ak-splash-brand em{
+        font-style:normal;
+        background:linear-gradient(135deg,#1FA2C7 0%,#3EC6E0 35%,#F58BB8 78%,#FFA9A0 100%);
+        -webkit-background-clip:text; background-clip:text; color:transparent;
+      }
+      .ak-splash-bar{
+        width:132px; height:4px; border-radius:999px;
+        background:#F0E2EA; overflow:hidden;
+      }
+      .ak-splash-bar span{
+        display:block; width:42%; height:100%; border-radius:999px;
+        background:linear-gradient(135deg,#1FA2C7,#3EC6E0,#F58BB8,#FFA9A0);
+        animation:akSplashBar 1.05s ease-in-out infinite;
+      }
+      .ak-splash-tag{
+        margin:0; font-family:'Poppins',sans-serif; font-size:.78rem;
+        letter-spacing:.22em; text-transform:uppercase; color:#6E6478;
+      }
+      @keyframes akSplashIn{ from{ opacity:0; transform:scale(.92); } to{ opacity:1; transform:scale(1); } }
+      @keyframes akSplashBar{ 0%{ transform:translateX(-110%);} 100%{ transform:translateX(260%);} }
+      @media (prefers-reduced-motion: reduce){
+        .ak-splash-inner{ animation:none; }
+        .ak-splash-bar span{ animation:none; }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-CzY3_Tx8.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-9_7mRiwk.css">
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- Splash de marca: visible hasta que React pinta el primer frame -->
+    <div id="ak-splash" aria-hidden="true">
+      <div class="ak-splash-inner">
+        <img src="https://ieuoeqdukphibffzqiar.supabase.co/storage/v1/object/public/Imagenes/marca/logo-ak.png" alt="" />
+        <div class="ak-splash-brand">AK <em>Creaciones</em></div>
+        <div class="ak-splash-bar"><span></span></div>
+        <p class="ak-splash-tag">Bisutería artesanal</p>
+      </div>
+    </div>
+
+    <script>
+      /* Captura temprana de beforeinstallprompt (debe registrarse ANTES de que
+         cargue React: el navegador lo emite apenas cumple sus criterios).
+         Se guarda en window.__akInstall y se suprime el mini-infobar nativo
+         para mostrar nuestro propio banner discreto (InstallPrompt.jsx). */
+      window.__akInstall = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__akInstall = e;
+        window.dispatchEvent(new Event('ak-install-available'));
+        if (window.__akPwaCapture) window.__akPwaCapture(e);
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__akInstall = null;
+        window.dispatchEvent(new Event('ak-app-installed'));
+        if (window.__akPwaClear) window.__akPwaClear();
+      });
+
+      /* Quita el splash en cuanto React monta y registra el Service Worker */
+      (function () {
+        var tryRemove = function () {
+          var root = document.getElementById('root')
+          var splash = document.getElementById('ak-splash')
+          if (root && root.childElementCount > 0 && splash && !splash.classList.contains('bye')) {
+            splash.classList.add('bye')
+            setTimeout(function () { splash.remove() }, 600)
+          } else {
+            requestAnimationFrame(tryRemove)
+          }
+        }
+        requestAnimationFrame(tryRemove)
+
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/ak-sw.js', { scope: '/' }).catch(function () {})
+          })
+        }
+      })()
+    </script>
+
+  </body>
+</html>

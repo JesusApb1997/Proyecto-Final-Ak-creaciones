@@ -1,0 +1,108 @@
+/* ==========================================================================
+   installButton.css — Botón "Instalar app" (header) + popover de beneficios
+   Usa las variables globales del sitio (--surface, --text, --muted, --border,
+   --radius, --radius-sm, --shadow-lg, --grad, --turq, --pink, --ease).
+   ========================================================================== */
+.install-wrap{ position:relative; }
+
+.install-btn{ position:relative; }
+.install-btn i{ font-size:1.05rem; }
+/* Puntito con el degradado de la marca: llama la atención sin molestar.
+   Pulso sutil: el punto late y un anillo se expande y desvanece. */
+.install-btn::after{
+  content:''; position:absolute; top:6px; right:6px;
+  width:8px; height:8px; border-radius:50%;
+  background:var(--grad);
+  box-shadow:0 0 0 2px var(--surface);
+  animation:ibDotPulse 2.6s var(--ease) 1.2s infinite;
+}
+@keyframes ibDotPulse{
+  0%, 100%{ transform:scale(1); }
+  50%{ transform:scale(1.2); }
+}
+/* Anillo expansivo (mismo timing que el latido, para que respiren juntos) */
+.install-btn::before{
+  content:''; position:absolute; top:6px; right:6px;
+  width:8px; height:8px; border-radius:50%;
+  background:var(--grad);
+  opacity:0; pointer-events:none;
+  animation:ibRing 2.6s var(--ease) 1.2s infinite;
+}
+@keyframes ibRing{
+  0%{ opacity:.5; transform:scale(1); }
+  55%{ opacity:0; transform:scale(3.2); }
+  100%{ opacity:0; transform:scale(3.2); }
+}
+/* Con el popover abierto, el botón queda quieto (ya captó la atención) */
+.install-wrap.open .install-btn::before{ animation:none; opacity:0; }
+.install-wrap.open .install-btn::after{ animation:none; }
+
+/* ===== Popover ===== */
+.ib-pop{
+  position:absolute; top:calc(100% + 12px); right:0; z-index:1100;
+  width:288px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);
+  padding:.85rem;
+  opacity:0; transform:translateY(-8px) scale(.97);
+  pointer-events:none;
+  transition:opacity .22s var(--ease), transform .22s var(--ease);
+}
+.install-wrap.open .ib-pop{
+  opacity:1; transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+
+.ib-pop-head{
+  display:flex; align-items:center; gap:.65rem;
+  padding-bottom:.7rem; margin-bottom:.7rem;
+  border-bottom:1px solid var(--border);
+}
+.ib-pop-head img{
+  width:44px; height:44px; border-radius:12px; object-fit:contain;
+  background:var(--cream, #FFF9F4); flex:none;
+}
+.ib-pop-head strong{
+  display:block; font-family:'Playfair Display',serif;
+  font-size:.98rem; color:var(--text); line-height:1.2;
+}
+.ib-pop-head small{ color:var(--muted); font-size:.72rem; }
+
+.ib-pop-list{
+  list-style:none; margin:0 0 .8rem; padding:0;
+  display:flex; flex-direction:column; gap:.45rem;
+}
+.ib-pop-list li{
+  display:flex; align-items:flex-start; gap:.55rem;
+  font-size:.8rem; color:var(--text); line-height:1.35;
+}
+.ib-pop-list li i{
+  color:var(--turq); font-size:.95rem; flex:none; margin-top:.05rem;
+}
+
+.ib-pop-cta{
+  display:flex; align-items:center; justify-content:center; gap:.45rem;
+  width:100%;
+  border:none; cursor:pointer;
+  padding:.62rem; border-radius:999px;
+  background:var(--grad);
+  color:#fff; font-weight:700; font-size:.88rem; font-family:inherit;
+  box-shadow:0 4px 14px rgba(31,162,199,.28);
+  transition:transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+.ib-pop-cta:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(232,93,158,.30); }
+.ib-pop-cta:active{ transform:translateY(0); }
+
+@media (max-width: 560px){
+  .ib-pop{
+    position:fixed; left:.7rem; right:.7rem; top:auto; bottom:.7rem;
+    width:auto; z-index:1300;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ib-pop{ transition:none; }
+  .install-btn::after, .install-btn::before{ animation:none; }
+}

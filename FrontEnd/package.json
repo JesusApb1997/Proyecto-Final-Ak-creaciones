@@ -1,0 +1,23 @@
+{
+  "name": "frontend-proyecto-final-ak",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Frontend React (Vite) de AK Creaciones — conecta con la API del BackEnd vía axios + CORS",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:kill": "node scripts/kill-port.cjs 5173 && vite",
+    "dev:port": "vite --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.1.10"
+  }
+}

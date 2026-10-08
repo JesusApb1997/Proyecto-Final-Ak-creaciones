@@ -1,0 +1,68 @@
+/* ==========================================================================
+   src/Map_ubi/mapa.css — Estilos de la sección "Ubicación"
+   Usa las variables globales del sitio (var(--surface), var(--border),
+   var(--radius), var(--shadow-sm), var(--pink), var(--turq), var(--muted)…)
+   ========================================================================== */
+
+.mapa-grid{
+  display:grid; grid-template-columns:1.5fr 1fr; gap:1.6rem; align-items:stretch;
+}
+
+/* ===== Mapa embebido ===== */
+.mapa-frame{
+  border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--border); box-shadow:var(--shadow-sm);
+  background:var(--surface); min-height:380px;
+}
+.mapa-frame iframe{
+  width:100%; height:100%; min-height:380px; border:0; display:block;
+}
+
+/* "Centro Comercial San Ignacio" en el subtítulo, con el degradado multicolor */
+.mapa-sub-accent{ font-weight:700; font-size:1.04em; }
+
+/* ===== Tarjeta lateral ===== */
+.mapa-card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm);
+  padding:1.6rem; display:flex; flex-direction:column; gap:1.2rem;
+}
+.mapa-card-head{ display:flex; gap:.6rem; align-items:center; }
+.mapa-card-head i{ color:var(--pink); font-size:1.3rem; }
+.mapa-card-head h3{ margin:0; font-size:1.25rem; }
+
+.mapa-detalles{ list-style:none; margin:0; padding:0; display:grid; gap:.95rem; }
+.mapa-detalles li{ display:flex; gap:.75rem; align-items:flex-start; font-size:.93rem; }
+.mapa-detalles i{ color:var(--pink); font-size:1.05rem; margin-top:.1rem; }
+.mapa-detalles span{ display:block; color:var(--text, inherit); }
+.mapa-detalles strong{
+  display:block; font-size:.78rem; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--turq); margin-bottom:.15rem;
+}
+
+.mapa-botones{ display:flex; flex-direction:column; gap:.7rem; }
+.mapa-botones .btn{ justify-content:center; }
+
+.mapa-extra{
+  margin-top:auto; padding-top:1rem; border-top:1px dashed var(--border);
+  display:flex; flex-direction:column; gap:.6rem; align-items:flex-start;
+}
+.mapa-copiar{
+  background:none; border:0; padding:0; cursor:pointer;
+  color:var(--turq); font-weight:600; font-size:.88rem;
+  display:inline-flex; gap:.4rem; align-items:center;
+}
+.mapa-copiar:hover{ text-decoration:underline; }
+.mapa-wa{
+  color:var(--muted); font-size:.85rem; text-decoration:none;
+  display:inline-flex; gap:.4rem; align-items:center;
+}
+.mapa-wa i{ color:#25D366; }
+.mapa-wa:hover{ color:var(--text, inherit); }
+
+/* ===== Responsive ===== */
+@media (max-width: 900px){
+  .mapa-grid{ grid-template-columns:1fr; }
+  .mapa-frame{ min-height:300px; }
+  .mapa-frame iframe{ min-height:300px; }
+}

@@ -1,0 +1,1 @@
+cd FrontEnd/src/styles.css && grep -nE '^\.header\{|^\.container \{|^\.nav-actions\{|^\.access-corner\{|^\.access-corner-btn\{|^\.btn\{|^\.btn-grad\{|^\.toast\{|^\.alert\{|^\.topbar\{|^\.brand\{' styles.css

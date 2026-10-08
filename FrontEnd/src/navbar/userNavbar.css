@@ -1,0 +1,115 @@
+/* ==========================================================================
+   src/navbar/userNavbar.css — Estilos del navbar de usuario reutilizable
+   ========================================================================== */
+
+.unav{
+  position:relative;
+  display:inline-flex;
+}
+.unav-btn{
+  display:flex; align-items:center; gap:.6rem;
+  border:1.5px solid var(--border); background:var(--surface);
+  border-radius:999px; padding:.3rem .8rem .3rem .3rem;
+  cursor:pointer; font-family:inherit;
+  transition:border-color .2s, box-shadow .2s;
+}
+.unav-btn:hover{
+  border-color:var(--turq);
+  box-shadow:0 4px 14px rgba(31,162,199,.14);
+}
+.unav-btn .dash-avatar{ width:32px; height:32px; font-size:.78rem; }
+.unav-name{
+  font-size:.85rem; font-weight:600; color:var(--text);
+  max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.unav-chev{ color:var(--muted); font-size:.8rem; transition:transform .25s var(--ease); }
+.unav.open .unav-chev{ transform:rotate(180deg); }
+
+/* --- Menú desplegable --- */
+.unav-menu{
+  position:absolute; right:0; top:calc(100% + 8px); z-index:80;
+  min-width:250px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow-lg);
+  padding:.45rem; display:grid; gap:.15rem;
+  opacity:0; transform:translateY(-6px) scale(.98); pointer-events:none;
+  transition:opacity .2s, transform .2s var(--ease);
+}
+.unav.open .unav-menu{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+
+@keyframes unav-slide{
+  from{ opacity:0; transform:translateX(-10px); }
+  to{ opacity:1; transform:translateX(0); }
+}
+
+/* Animaciones simples del menú: aparición escalonada de las opciones */
+.unav.open .unav-item{
+  animation:unav-slide .3s var(--ease) both;
+  animation-delay:calc(var(--i, 0) * 55ms);
+}
+.unav.open .unav-head{
+  animation:unav-slide .3s var(--ease) both;
+}
+.unav-item:active{ transform:scale(.97); transition:transform .1s; }
+
+/* Encabezado con los datos del usuario */
+.unav-head{
+  display:flex; align-items:center; gap:.7rem;
+  padding:.6rem .7rem; border-bottom:1px solid var(--border);
+  margin-bottom:.35rem;
+}
+.unav-head .dash-avatar{ width:40px; height:40px; }
+.unav-head-info{ min-width:0; }
+.unav-head-info strong{
+  display:block; font-size:.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.unav-head-info small{ color:var(--muted); font-size:.75rem; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.unav-item{
+  display:flex; align-items:center; gap:.65rem;
+  width:100%; text-align:left;
+  border:none; background:transparent; color:var(--text);
+  font-family:inherit; font-size:.88rem; font-weight:500;
+  padding:.6rem .7rem; border-radius:var(--radius-sm); cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.unav-item i{ color:var(--muted); width:18px; text-align:center; }
+.unav-item:hover{ background:color-mix(in srgb, var(--turq) 10%, transparent); }
+.unav-item:hover i{ color:var(--turq); }
+.unav-item.danger{ color:#D64560; }
+.unav-item.danger i{ color:#D64560; }
+.unav-item.danger:hover{ background:color-mix(in srgb, #D64560 10%, transparent); }
+.unav-sep{ height:1px; background:var(--border); margin:.3rem .4rem; }
+
+/* ================= Modales (datos / editar / contraseña) ================= */
+/* Los modales se renderizan por portal en <body>, así que el fondo
+   semiopaco cubre todo el viewport y el contenido queda centrado. */
+.modal.unav-modal{
+  background:rgba(20,12,28,.45);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+}
+.unav-modal .modal-box{
+  width:min(460px,96vw);
+  animation:unav-pop .32s var(--ease) both;
+}
+@keyframes unav-pop{
+  from{ opacity:0; transform:translateY(18px) scale(.96); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+.unav-modal h3{ font-family:'Playfair Display',serif; margin:0 0 .2rem; }
+.unav-modal .product-form{ display:grid; gap:.9rem; margin-top:1rem; }
+.unav-current{
+  display:grid; gap:.35rem;
+  background:color-mix(in srgb, var(--turq) 7%, var(--bg));
+  border:1px solid color-mix(in srgb, var(--turq) 25%, transparent);
+  border-radius:var(--radius-sm); padding:.8rem 1rem;
+  font-size:.86rem;
+}
+.unav-current div{
+  display:flex; justify-content:space-between; gap:1rem;
+  animation:unav-fade .35s var(--ease) both;
+  animation-delay:calc(var(--i, 0) * 70ms);
+}
+.unav-current dt{ color:var(--muted); }
+.unav-current dd{ margin:0; font-weight:600; text-align:right; word-break:break-all; }

@@ -1,0 +1,342 @@
+/* ==========================================================================
+   src/login/storeLogin.css — Login público de clientes (#/acceder)
+   Misma identidad visual que el resto del proyecto (variables de styles.css)
+   ========================================================================== */
+
+.store-login-page{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:2.2rem 1.2rem;
+  position:relative;
+  overflow:hidden;
+  background:var(--bg);
+  transition:background .35s var(--ease);
+}
+
+/* Brillos de marca en el fondo */
+.store-login-page::before,
+.store-login-page::after{
+  content:'';
+  position:absolute;
+  width:520px; height:520px;
+  border-radius:50%;
+  filter:blur(90px);
+  opacity:.16;
+  pointer-events:none;
+}
+.store-login-page::before{ background:#3EC6E0; top:-180px; right:-140px; }
+.store-login-page::after{ background:#F58BB8; bottom:-200px; left:-160px; }
+
+.store-login-card{
+  position:relative;
+  z-index:1;
+  width:min(440px, 100%);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:26px;
+  box-shadow:var(--shadow-lg);
+  padding:2.4rem 2.1rem 1.7rem;
+  animation:storeCardIn .5s var(--ease) both;
+}
+@keyframes storeCardIn{
+  from{ opacity:0; transform:translateY(16px) scale(.98); }
+  to{ opacity:1; transform:none; }
+}
+
+.store-login-logo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.65rem;
+  margin-bottom:1.35rem;
+}
+.store-login-logo img{
+  width:58px; height:58px;
+  object-fit:contain;
+  filter:drop-shadow(0 6px 14px rgba(42,162,199,.22));
+}
+.store-login-logo .brand-name{
+  font-family:'Playfair Display',serif;
+  font-size:1.42rem;
+  font-weight:700;
+  color:var(--text);
+}
+.store-login-logo .brand-name em{
+  font-style:normal;
+  background:var(--grad);
+  -webkit-background-clip:text; background-clip:text;
+  color:transparent;
+}
+
+.store-kicker{
+  text-align:center;
+  margin:0 0 .3rem;
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:var(--turq);
+}
+.store-login-title{
+  font-family:'Playfair Display',serif;
+  text-align:center;
+  font-size:clamp(1.7rem, 4.5vw, 2.15rem);
+  margin:0 0 .45rem;
+  color:var(--text);
+  line-height:1.15;
+}
+.store-login-title .accent{
+  background:var(--grad);
+  -webkit-background-clip:text; background-clip:text;
+  color:transparent;
+}
+.store-login-sub{
+  text-align:center;
+  margin:0 0 1.4rem;
+  color:var(--muted);
+  font-size:.92rem;
+}
+
+/* ---------- Botones sociales ---------- */
+.store-social{
+  display:grid;
+  gap:.65rem;
+  margin-bottom:1.15rem;
+}
+.store-social-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.6rem;
+  width:100%;
+  padding:.78rem 1rem;
+  border-radius:999px;
+  font-family:inherit;
+  font-size:.94rem;
+  font-weight:600;
+  cursor:pointer;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  transition:transform .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+}
+.store-social-btn:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-md);
+}
+.store-social-btn:disabled{ opacity:.65; cursor:wait; }
+.store-social-btn svg{ width:19px; height:19px; flex:none; }
+.store-social-btn.google{ border-color:color-mix(in srgb, #4285F4 35%, var(--border)); }
+.store-social-btn.apple{ border-color:color-mix(in srgb, #111 30%, var(--border)); }
+html[data-theme="dark"] .store-social-btn.apple{ border-color:color-mix(in srgb, #fff 35%, var(--border)); }
+
+/* ---------- Divisor ---------- */
+.store-divider{
+  display:flex;
+  align-items:center;
+  gap:.8rem;
+  margin:1.1rem 0 1.2rem;
+  color:var(--muted);
+  font-size:.74rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+}
+.store-divider::before,
+.store-divider::after{
+  content:'';
+  flex:1;
+  height:1px;
+  background:var(--border);
+}
+
+/* ---------- Formulario ---------- */
+.store-form{ display:grid; gap:.85rem; }
+.store-field span{
+  display:block;
+  margin-bottom:.3rem;
+  font-size:.78rem;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:var(--muted);
+}
+.store-input{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  background:var(--bg);
+  padding:.15rem .85rem;
+  transition:border-color .2s, box-shadow .2s;
+}
+.store-input:focus-within{
+  border-color:var(--turq);
+  box-shadow:0 0 0 3.5px color-mix(in srgb, var(--turq) 18%, transparent);
+}
+.store-input i{ color:var(--muted); font-size:1rem; }
+/* Prefijo @ del nombre de usuario único */
+.store-input .store-at{ color:var(--turq); font-weight:700; font-size:.95rem; padding-right:.15rem; }
+.store-input input{
+  flex:1;
+  min-width:0;
+  border:none;
+  outline:none;
+  background:transparent;
+  color:var(--text);
+  font-family:inherit;
+  font-size:.95rem;
+  padding:.62rem 0;
+}
+.store-pass-toggle{
+  border:none;
+  background:none;
+  color:var(--muted);
+  cursor:pointer;
+  padding:.2rem;
+  font-size:1rem;
+}
+.store-pass-toggle:hover{ color:var(--turq); }
+
+.store-error{
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  margin:0;
+  padding:.6rem .85rem;
+  border-radius:12px;
+  background:color-mix(in srgb, #E85D9E 12%, var(--surface));
+  border:1px solid color-mix(in srgb, #E85D9E 35%, var(--border));
+  color:#C23B7E;
+  font-size:.85rem;
+}
+html[data-theme="dark"] .store-error{ color:#FF9EC9; }
+
+.store-info{
+  margin:0;
+  padding:.55rem .85rem;
+  border-radius:12px;
+  background:color-mix(in srgb, var(--turq) 10%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--turq) 28%, var(--border));
+  color:var(--turq-deep);
+  font-size:.84rem;
+}
+html[data-theme="dark"] .store-info{ color:#7FD6EC; }
+
+.store-quick{
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  width:100%;
+  padding:.8rem 1rem;
+  border-radius:16px;
+  border:1.5px dashed color-mix(in srgb, var(--turq) 45%, var(--border));
+  background:color-mix(in srgb, var(--turq) 7%, var(--surface));
+  color:var(--text);
+  font-family:inherit;
+  font-size:.92rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:transform .18s var(--ease), box-shadow .18s var(--ease);
+  margin-bottom:.35rem;
+}
+.store-quick:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-md);
+}
+.store-quick:disabled{ opacity:.7; cursor:wait; }
+.store-quick .who{
+  display:grid;
+  text-align:left;
+  flex:1;
+  line-height:1.25;
+}
+.store-quick .who small{
+  font-weight:500;
+  color:var(--muted);
+  font-size:.78rem;
+}
+.store-quick .bolt{
+  display:grid;
+  place-items:center;
+  width:34px; height:34px;
+  border-radius:50%;
+  background:var(--grad);
+  color:#fff;
+  flex:none;
+}
+
+/* Botón degradado principal (formulario email) */
+.store-submit{
+  background:var(--grad);
+  color:#fff;
+  border:none;
+}
+.store-submit:hover:not(:disabled){
+  box-shadow:0 10px 24px color-mix(in srgb, var(--turq) 35%, transparent);
+}
+
+.store-switch{
+  text-align:center;
+  font-size:.86rem;
+  color:var(--muted);
+  margin:.2rem 0 0;
+}
+.store-switch button{
+  border:none;
+  background:none;
+  color:var(--turq);
+  font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+  font-size:.86rem;
+  padding:0 0 0 .25rem;
+}
+.store-switch button:hover{ text-decoration:underline; }
+
+.store-forgot{
+  display:inline-flex;
+  justify-content:center;
+  width:100%;
+  margin-top:.15rem;
+  border:none;
+  background:none;
+  color:var(--muted);
+  font-family:inherit;
+  font-size:.82rem;
+  cursor:pointer;
+}
+.store-forgot:hover{ color:var(--turq); }
+
+.store-back{
+  display:inline-flex;
+  justify-content:center;
+  gap:.4rem;
+  width:100%;
+  margin-top:1rem;
+  padding-top:.95rem;
+  border-top:1px solid var(--border);
+  color:var(--muted);
+  font-size:.86rem;
+  text-decoration:none;
+}
+.store-back:hover{ color:var(--turq); }
+
+/* ---------- Rueda girando reutilizable ---------- */
+.store-spinner{
+  width:1rem; height:1rem;
+  border-radius:50%;
+  border:2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color:currentColor;
+  animation:storeSpin .7s linear infinite;
+  display:inline-block;
+  vertical-align:-2px;
+}
+@keyframes storeSpin{ to{ transform:rotate(360deg); } }
+
+/* ---------- Móvil ---------- */
+@media (max-width: 480px){
+  .store-login-card{ padding:1.8rem 1.3rem 1.3rem; border-radius:20px; }
+  .store-login-logo img{ width:50px; height:50px; }
+}
