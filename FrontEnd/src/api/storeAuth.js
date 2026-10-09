@@ -241,4 +241,19 @@ export const storeOrdersApi = {
     )
     return data
   },
+
+  /* El cliente ya realizó el pago móvil: el backend registra el pedido y le
+     envía al correo la confirmación con el MONTO TOTAL de su carrito. */
+  payMobile: async (items) => {
+    const token = storeSession.get()?.token
+    const { data } = await api.post(
+      '/store-orders/pago-movil',
+      { items },
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        customerAuth: true,
+      }
+    )
+    return data
+  },
 }

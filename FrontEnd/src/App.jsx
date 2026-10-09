@@ -538,6 +538,25 @@ export default function App() {
     )
   }
 
+  /* Pestaña de registro (#/registro): alta de usuario común (correo · Google ·
+     Apple) — misma vista del login en modo solo-registro. Al terminar queda la
+     sesión de cliente y se va a la tienda. */
+  if (route.startsWith('#/registro')) {
+    return (
+      <LoginPage
+        registerOnly
+        onSuccess={() => {
+          setAuth(session.get())
+          location.hash = '#/dashboard'
+        }}
+        onCustomerAuth={() => {
+          setStoreAuth(storeSession.get())
+          location.hash = '#/'
+        }}
+      />
+    )
+  }
+
   /* Login público de clientes: email · Google · Apple.
      Si la cuenta es del equipo (admin/trabajadora), el backend devuelve rol
      'admin' en este mismo token: promovemos esa sesión a sesión de personal

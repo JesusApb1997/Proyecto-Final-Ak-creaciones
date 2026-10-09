@@ -5,6 +5,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const { usernameValidationError } = require('../utils/username');
+const { sendWelcomeEmail } = require('../services/mailer');
 
 /*
  * Normaliza el rol que llega desde Supabase o el formulario:
@@ -137,6 +138,19 @@ const UserController = {
       });
       // Nunca devolver el hash al cliente
       delete newUser.password_hash;
+
+      /* Correo de bienvenida al usuario registrado (fire-and-forget: no hace
+         esperar la respuesta del panel; si el SMTP falla solo se loguea) */
+      sendWelcomeEmail({
+        to: newUser.email,
+        name: newUser.name,
+        role: finalRole,
+        temporaryPassword: password ? String(password) : null,
+        registeredBy: req.user?.name ? `${req.user.name} (panel de administración)` : 'Panel de administración',
+      })
+        .then((r) => console.log(`📧 Bienvenida a ${newUser.email}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
+        .catch((e) => console.error('✗ Error en correo de bienvenida:', e.message));
+
       res.status(201).json({ success: true, data: newUser });
     } catch (err) {
       // Violacion de la restriccion UNIQUE de email

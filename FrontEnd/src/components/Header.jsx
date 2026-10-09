@@ -139,6 +139,19 @@ export default function Header({
             </button>
           )}
 
+          {/* Pestaña de registro de usuario (#/registro): correo · Google · Apple */}
+          {!customer && (
+            <a
+              href="#/registro"
+              className="access-corner-btn access-register-btn"
+              aria-label="Crear una cuenta nueva"
+              title="Regístrate — correo, Google o Apple"
+            >
+              <i className="bi bi-person-plus"></i>
+              <span className="access-corner-txt">Regístrate</span>
+            </a>
+          )}
+
           {/* Acceso rápido al panel para personal (oculto para clientes) */}
           {isStaff && (
             <button

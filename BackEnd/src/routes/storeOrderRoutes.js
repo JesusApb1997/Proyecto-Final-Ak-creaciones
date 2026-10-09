@@ -14,4 +14,8 @@ const router = Router();
 // POST /api/store-orders -> registra el pedido y envía la factura por correo
 router.post('/', verifyToken, storeOrderController.create);
 
+// POST /api/store-orders/pago-movil -> el cliente pagó por Pago Móvil:
+// registra el pedido y le envía al correo la confirmación con el monto total
+router.post('/pago-movil', verifyToken, storeOrderController.createMobilePayment);
+
 module.exports = router;

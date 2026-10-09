@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { session, authApi } from '../api/auth.js'
-import { productsApi, usersApi, uploadsApi } from '../api/client.js'
+import { productsApi, usersApi, uploadsApi, deliveryApi } from '../api/client.js'
 import UserNavbar from '../navbar/UserNavbar.jsx'
 import InventarioView from './InventarioView.jsx'
+import DeliveryView from './DeliveryView.jsx'
+import PaymentSettingsView from './PaymentSettingsView.jsx'
 import { money, PRODUCT_CATEGORIES, PRODUCT_IMAGES, cdn } from '../config.js'
 
 /* ==========================================================
@@ -18,6 +20,8 @@ const norm = (row) => ({
 const NAV = [
   { icon: 'bi-speedometer2', label: 'Resumen', href: '#/dashboard', key: 'resumen' },
   { icon: 'bi-bag', label: 'Productos', href: '#/dashboard/productos', key: 'productos' },
+  { icon: 'bi-truck', label: 'Delivery', href: '#/dashboard/delivery', key: 'delivery' },
+  { icon: 'bi-credit-card-2-front', label: 'Datos de pago', href: '#/dashboard/datos-pago', key: 'datos-pago', adminOnly: true },
   { icon: 'bi-boxes', label: 'Inventario', href: '#/dashboard/inventario', key: 'inventario', adminOnly: true },
   { icon: 'bi-people', label: 'Usuarios', href: '#/dashboard/usuarios', key: 'usuarios', adminOnly: true },
 ]
@@ -25,6 +29,8 @@ const NAV = [
 const sectionFromHash = () => {
   const h = location.hash || '#/dashboard'
   if (h.includes('productos')) return 'productos'
+  if (h.includes('delivery')) return 'delivery'
+  if (h.includes('datos-pago')) return 'datos-pago'
   if (h.includes('inventario')) return 'inventario'
   if (h.includes('usuarios')) return 'usuarios'
   return 'resumen'
@@ -927,11 +933,35 @@ export default function Dashboard({ onLogout }) {
                     </div>
                   </a>
                 )}
+                <a className="dash-card" href="#/dashboard/delivery">
+                  <i className="bi bi-truck"></i>
+                  <div>
+                    <h3>Pedidos Delivery</h3>
+                    <p>Ver pedidos a domicilio de clientes registrados</p>
+                  </div>
+                </a>
+                {isAdmin && (
+                  <a className="dash-card" href="#/dashboard/datos-pago">
+                    <i className="bi bi-credit-card-2-front"></i>
+                    <div>
+                      <h3>Datos de pago</h3>
+                      <p>Banco, teléfono y cédula del pago móvil que ve el cliente</p>
+                    </div>
+                  </a>
+                )}
               </div>
             </>
           )}
 
           {section === 'productos' && <ProductsView showToast={showToast} readOnly={!isAdmin} />}
+          {section === 'delivery' && <DeliveryView showToast={showToast} isAdmin={isAdmin} />}
+          {section === 'datos-pago' &&
+            (isAdmin ? (
+              <PaymentSettingsView showToast={showToast} />
+            ) : (
+              // Un empleado que escriba la URL cae aquí: catálogo de solo lectura
+              <ProductsView showToast={showToast} readOnly />
+            ))}
           {section === 'inventario' &&
             (isAdmin ? (
               <InventarioView showToast={showToast} />

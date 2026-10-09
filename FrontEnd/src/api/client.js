@@ -56,6 +56,40 @@ export const productsApi = {
   remove: (id) => api.delete(`/products/${id}`),
 }
 
+/* ---------- Delivery (/api/delivery) ----------
+   El panel (staff) usa las rutas con el token del panel.
+   create() recibe el token del CLIENTE de la tienda: el interceptor no lo
+   conoce, así que se envía explícitamente y se marca customerAuth para que
+   un 401 no expulse al cliente al login del personal. */
+export const deliveryApi = {
+  getAll: () => api.get('/delivery'),
+  getById: (id) => api.get(`/delivery/${id}`),
+  getByUserId: (userId) => api.get(`/delivery/user/${userId}`),
+  create: (body, token) =>
+    api.post('/delivery', body, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      customerAuth: true,
+    }),
+  update: (id, body) => api.put(`/delivery/${id}`, body),
+  updateStatus: (id, status) => api.patch(`/delivery/${id}/status`, { status }),
+  remove: (id) => api.delete(`/delivery/${id}`),
+}
+
+/* ---------- Datos de pago (/api/payment-settings) ----------
+   get() es público: el carrito lo consulta para mostrarle al cliente los
+   datos del pago móvil que configuró el admin en el dashboard.
+   update() solo funciona con el token del admin. */
+export const paymentSettingsApi = {
+  get: async () => {
+    const { data } = await api.get('/payment-settings')
+    return data
+  },
+  update: async (body) => {
+    const { data } = await api.put('/payment-settings', body)
+    return data
+  },
+}
+
 /* ---------- Subida de imágenes (/api/uploads, solo admin) ----------
    Envía el archivo como multipart/form-data y devuelve la URL pública. */
 export const uploadsApi = {

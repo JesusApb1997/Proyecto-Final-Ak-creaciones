@@ -8,7 +8,7 @@
    - Fuentes/iconos locales                    → cache-first en runtime
    - API del backend (/api/, :4000)            → SIEMPRE red (nunca datos viejos)
    ========================================================================== */
-const VERSION = 'ak-pwa-v2'
+const VERSION = 'ak-pwa-v3'
 const SHELL_CACHE = `${VERSION}-shell`
 const IMG_CACHE = `${VERSION}-img`
 const IMG_CACHE_MAX = 150
@@ -94,12 +94,25 @@ async function networkFirstNavigation(request) {
   }
 }
 
+/* Módulos del dev server de Vite (/src/..., /@vite/..., imports con ?t=):
+   NUNCA se cachean — al recompilar cambian y servirlos viejos hacía que el
+   login se viera "como antes" tras cada recarga. */
+const isDevModule = (url) =>
+  url.pathname.startsWith('/src/') ||
+  url.pathname.startsWith('/@') ||
+  url.pathname.startsWith('/node_modules/') ||
+  url.searchParams.has('t') ||
+  url.searchParams.has('v')
+
 /* ---------- fetch --------------------------------------------------------- */
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
 
   const url = new URL(request.url)
+
+  /* Módulos del bundler: siempre red (el SW no interviene) */
+  if (url.origin === self.location.origin && isDevModule(url)) return
 
   /* Navegación de la SPA: red primero, shell si está offline */
   if (request.mode === 'navigate') {

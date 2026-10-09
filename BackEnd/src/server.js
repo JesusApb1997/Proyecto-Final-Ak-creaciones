@@ -16,6 +16,8 @@ const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const publicAuthRoutes = require('./routes/publicAuthRoutes');
 const storeOrderRoutes = require('./routes/storeOrderRoutes');
+const deliveryRoutes = require('./routes/deliveryRoutes');
+const paymentSettingsRoutes = require('./routes/paymentSettingsRoutes');
 const inventarioRoutes = require('./routes/inventarioRoutes');
 const uploadController = require('./controllers/uploadController');
 const { verifyToken, requireRole } = require('./middleware/auth');
@@ -71,6 +73,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/store-auth', publicAuthRoutes); // login público de clientes (email/Google/Apple)
 app.use('/api/store-orders', storeOrderRoutes); // pedidos del carrito con factura por correo (token)
+app.use('/api/delivery', deliveryRoutes); // pedidos de delivery (entrega a domicilio)
+app.use('/api/payment-settings', paymentSettingsRoutes); // datos de pago móvil (admin los edita; la tienda los lee)
 app.use('/api/inventario', inventarioRoutes);
 
 // POST /api/uploads -> sube una imagen (solo admin) y devuelve la URL pública

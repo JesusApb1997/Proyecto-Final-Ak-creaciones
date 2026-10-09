@@ -13,6 +13,8 @@
     "fix:passwords": "node src/scripts/fix-passwords.js",
     "migrate:reset-tokens": "node src/scripts/migrate-reset-tokens.js",
     "migrate:customers": "node src/scripts/migrate-customers.js",
+    "migrate:delivery": "node src/scripts/migrate-delivery.js",
+    "migrate:payment-settings": "node src/scripts/migrate-payment-settings.js",
     "migrate:inventario": "node src/scripts/migrate-inventario.js",
     "seed:inventario": "node src/scripts/seed-inventario.js",
     "migrate:images": "node src/scripts/migrate-images.js",

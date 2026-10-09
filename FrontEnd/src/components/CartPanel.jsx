@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
 import { money } from '../config.js'
 import { storeOrdersApi, storeSession } from '../api/storeAuth.js'
+import DeliveryForm from '../cart/DeliveryForm.jsx'
+import MobilePaymentModal from '../cart/MobilePaymentModal.jsx'
 
 export default function CartPanel({ open, items, total, onClose, onRemove, toast }) {
   /* ¿Hay un cliente con sesión? Su token permite enviarle la factura por correo */
   const [cliente, setCliente] = useState(() => storeSession.get())
   const [sending, setSending] = useState(false)
+  /* Formulario "Delivery a mi localidad": se abre sobre el carrito */
+  const [deliveryOpen, setDeliveryOpen] = useState(false)
+  /* Ventana de Pago Móvil: muestra los datos que configuró el admin */
+  const [pagoOpen, setPagoOpen] = useState(false)
 
   /* Si el usuario inicia/cierra sesión con el panel abierto, se refleja aquí */
   useEffect(() => {
@@ -107,6 +113,30 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
           {/* Cliente con sesión: la factura llega a su correo tras confirmar */}
           {cliente?.token ? (
             <>
+              {/* ===== Delivery a su localidad =====
+                  El cliente anexa teléfono, nombre, apellido y dirección;
+                  al enviar, el pedido se guarda en la tabla Delivery y el
+                  admin/empleados lo ven en el dashboard. */}
+              <button
+                className="btn btn-delivery"
+                onClick={() => setDeliveryOpen(true)}
+                disabled={!items.length}
+              >
+                <i className="bi bi-truck"></i> Delivery a mi localidad
+              </button>
+
+              {/* ===== Pago Móvil =====
+                  Abre la ventana con los datos que el admin guardó en
+                  "Datos de pago"; al confirmar, el pedido se registra y
+                  llega al correo del cliente con el monto total. */}
+              <button
+                className="btn btn-pago-movil"
+                onClick={() => setPagoOpen(true)}
+                disabled={!items.length}
+              >
+                <i className="bi bi-credit-card-2-front"></i> Pagar por Pago Móvil
+              </button>
+
               <button className="btn btn-grad" onClick={handleCheckout} disabled={!items.length || sending}>
                 <i className="bi bi-whatsapp"></i>
                 {sending ? 'Enviando pedido…' : 'Continuar por WhatsApp'}
@@ -118,6 +148,20 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
             </>
           ) : (
             <>
+              <button className="btn btn-delivery" onClick={() => (location.hash = '#/acceder')} disabled={!items.length}>
+                <i className="bi bi-truck"></i> Delivery a mi localidad
+              </button>
+
+              {/* Sin sesión no hay correo al que enviar la confirmación:
+                  el botón lleva al login de la tienda. */}
+              <button
+                className="btn btn-pago-movil"
+                onClick={() => (location.hash = '#/acceder')}
+                disabled={!items.length}
+              >
+                <i className="bi bi-credit-card-2-front"></i> Pagar por Pago Móvil
+              </button>
+
               <button className="btn btn-grad" onClick={handleCheckout} disabled={!items.length}>
                 <i className="bi bi-whatsapp"></i> Continuar por WhatsApp
               </button>
@@ -131,6 +175,24 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
         </div>
       </aside>
       <div className={`overlay${open ? ' show' : ''}`} onClick={onClose}></div>
+
+      {/* ===== Modal de datos de delivery ===== */}
+      <DeliveryForm
+        open={deliveryOpen && !!cliente?.token}
+        items={items}
+        total={total}
+        onClose={() => setDeliveryOpen(false)}
+        toast={toast}
+      />
+
+      {/* ===== Ventana de Pago Móvil ===== */}
+      <MobilePaymentModal
+        open={pagoOpen && !!cliente?.token}
+        items={items}
+        total={total}
+        onClose={() => setPagoOpen(false)}
+        toast={toast}
+      />
     </>
   )
 }

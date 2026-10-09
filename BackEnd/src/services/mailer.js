@@ -1,7 +1,9 @@
 /**
  * Servicio de correo (nodemailer) — AK Creaciones
  *
- * - Si hay SMTP_HOST/SMTP_USER/SMTP_PASS en .env, envía el correo real por SMTP.
+ * - Si hay EMAIL_USER/EMAIL_PASS en .env (clave de aplicación de Gmail),
+ *   envía el correo real por SMTP (smtp.gmail.com).
+ *   También acepta SMTP_HOST/SMTP_USER/SMTP_PASS/SMTP_PORT si usas otro proveedor.
  * - Si NO hay SMTP configurado (desarrollo), imprime el correo en la consola
  *   del backend y guarda una copia legible en BackEnd/.mail-out/ para poder
  *   probar el flujo completo sin cuenta de correo.
@@ -14,10 +16,13 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
+/* Clave de aplicación de Gmail (EMAIL_USER + EMAIL_PASS) o SMTP genérico */
+const EMAIL_USER = (process.env.EMAIL_USER || '').trim();
+const EMAIL_PASS = (process.env.EMAIL_PASS || '').trim();
+const SMTP_HOST = process.env.SMTP_HOST || (EMAIL_USER && EMAIL_PASS ? 'smtp.gmail.com' : '');
+const SMTP_USER = (process.env.SMTP_USER || EMAIL_USER).trim();
+const SMTP_PASS = (process.env.SMTP_PASS || EMAIL_PASS).trim();
+const SMTP_PORT = Number(process.env.SMTP_PORT || (SMTP_HOST === 'smtp.gmail.com' ? 465 : 587));
 const MAIL_FROM = process.env.MAIL_FROM || 'AK Creaciones <no-reply@akcreaciones.com>';
 
 /* Origen del frontend para armar los enlaces (hash router) */
@@ -36,7 +41,7 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     secure: SMTP_PORT === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
-  console.log(`📧 Mailer SMTP listo (${SMTP_HOST}:${SMTP_PORT})`);
+  console.log(`📧 Mailer SMTP listo (${SMTP_HOST}:${SMTP_PORT} como ${SMTP_USER})`);
 } else {
   console.log('📧 Mailer en modo desarrollo: los correos se imprimen en consola y se guardan en BackEnd/.mail-out/');
 }
@@ -173,10 +178,42 @@ function fmtMoney(n) {
   return '$' + Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0 }) {
+async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0, payment = null }) {
   const fecha = new Date().toLocaleString('es-VE', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+
+  /* ---------- Bloque de Pago Móvil (solo si el pedido se pagó así) ---------- */
+  const esPagoMovil = Boolean(payment);
+  const filaPago = (label, value) =>
+    value
+      ? `<tr>
+      <td style="padding:10px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;">${label}</td>
+      <td align="right" style="padding:10px 16px;font-size:13px;font-weight:bold;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">${value}</td>
+    </tr>`
+      : '';
+
+  const pagoHtml = esPagoMovil
+    ? `
+  <!-- ===== Datos del Pago Móvil (los configura el admin) ===== -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #F6E3EC;border-radius:16px;overflow:hidden;">
+    <tr><td style="background:linear-gradient(135deg,#1FA2C7 0%,#3EC6E0 35%,#F58BB8 78%,#FFA9A0 100%);padding:11px 18px;">
+      <span style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#FFFFFF;">💳 ${payment.method || 'Pago Móvil'}</span>
+    </td></tr>
+    <tr><td style="padding:4px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${filaPago('Banco', payment.bank_name)}
+        ${filaPago('Teléfono', payment.phone)}
+        ${filaPago('Cédula / RIF', payment.cedula)}
+        ${filaPago('Titular', payment.holder_name)}
+      </table>
+    </td></tr>
+  </table>`
+    : '';
+
+  const notaIntro = esPagoMovil
+    ? `¡Recibimos tu <b>pago móvil</b> por <b>${fmtMoney(total)}</b>! En breve confirmaremos el pago y coordinaremos el envío de tu pedido por WhatsApp.`
+    : 'Recibimos tu pedido: en breve continuaremos la coordinación de <b>pago y envío</b> por WhatsApp.';
 
   /* Tabla de artículos (HTML por tablas + estilos inline, compatible Gmail/Outlook) */
   const filas = items
@@ -227,25 +264,33 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0 }
     </td></tr>
   </table>
 
+  ${pagoHtml}
+
   <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6E6478;font-family:Arial,Helvetica,sans-serif;">
-    <i style="color:#1FA2C7;">✦</i> Recibimos tu pedido: en breve continuaremos la coordinación de <b>pago y envío</b> por WhatsApp.
+    <i style="color:#1FA2C7;">✦</i> ${notaIntro}
   </p>
   <p style="margin:0 0 22px;font-size:12px;line-height:1.6;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;">
     Este correo es la confirmación de tu solicitud — consérvalo como comprobante de tu pedido.
   </p>`;
 
   const html = brandTemplate({
-    kicker: 'Confirmación de pedido',
+    kicker: esPagoMovil ? 'Confirmación de pago móvil' : 'Confirmación de pedido',
     title: '¡Gracias' + (name ? `, ${name}` : '') + '! Tu',
-    titleAccent: 'pedido está listo',
-    intro: 'Guardamos tu solicitud y la enviamos a nuestro WhatsApp. Aquí tienes el detalle de todo lo que pediste, con el monto total:',
+    titleAccent: esPagoMovil ? 'pago fue registrado' : 'pedido está listo',
+    intro: esPagoMovil
+      ? 'Registramos tu pago móvil. Aquí tienes los datos del pago y el detalle de todo lo que pediste, con el monto total:'
+      : 'Guardamos tu solicitud y la enviamos a nuestro WhatsApp. Aquí tienes el detalle de todo lo que pediste, con el monto total:',
     bodyHtml: invoiceHtml,
     ctaLabel: 'Ver la tienda',
     ctaUrl: `${FRONT_URL}/#/`,
-    footerNote: 'Si tú no realizaste este pedido, alguien pudo usar tu sesión — te recomendamos cambiar tu contraseña y escribirnos por WhatsApp.',
+    footerNote: esPagoMovil
+      ? 'Si tú no realizaste este pago, alguien pudo usar tu sesión — te recomendamos cambiar tu contraseña y escribirnos por WhatsApp.'
+      : 'Si tú no realizaste este pedido, alguien pudo usar tu sesión — te recomendamos cambiar tu contraseña y escribirnos por WhatsApp.',
   });
 
-  const subject = `Pedido ${orderNumber} · ${fmtMoney(total)} · AK Creaciones`;
+  const subject = esPagoMovil
+    ? `Pago Móvil confirmado · ${fmtMoney(total)} · ${orderNumber} · AK Creaciones`
+    : `Pedido ${orderNumber} · ${fmtMoney(total)} · AK Creaciones`;
 
   if (transporter) {
     try {
@@ -259,7 +304,10 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0 }
 
   /* -------- Modo desarrollo: consola + archivo -------- */
   const plain =
-    `[AK Creaciones] Factura del pedido ${orderNumber}\nPara: ${to}\n` +
+    `[AK Creaciones] ${esPagoMovil ? 'Pago Móvil confirmado' : 'Factura del pedido'} ${orderNumber}\nPara: ${to}\n` +
+    (esPagoMovil && payment
+      ? `Pago Móvil: ${payment.bank_name || '—'} · ${payment.phone || '—'} · ${payment.cedula || '—'} · ${payment.holder_name || '—'}\n`
+      : '') +
     items.map((it) => `  · ${it.name}${it.variante ? ` (${it.variante})` : ''} x${it.qty} — ${fmtMoney(it.price * it.qty)}`).join('\n') +
     `\nTOTAL: ${fmtMoney(total)}\n`;
   console.log('\n──────────── 📧 FACTURA (modo desarrollo) ────────────');
@@ -270,7 +318,7 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0 }
   try {
     const dir = path.join(__dirname, '..', '..', '.mail-out');
     fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `invoice-${orderNumber}.html`);
+    const file = path.join(dir, `${esPagoMovil ? 'pago-movil' : 'invoice'}-${orderNumber}.html`);
     fs.writeFileSync(file, html);
     previewPath = file;
   } catch {
@@ -279,4 +327,91 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0 }
   return { delivered: true, mode: 'dev', orderNumber, previewPath };
 }
 
-module.exports = { sendPasswordReset, sendOrderInvoice, FRONT_URL };
+/* -------------------------------------------------------------------------
+ * Bienvenida — se envía cuando se crea una cuenta:
+ *   · desde el Dashboard del Admin (POST /api/users)  -> con la contraseña
+ *     inicial que el Admin definió (si fue él quien la puso).
+ *   · desde el registro público (#/registro, POST /api/store-auth/register).
+ * Devuelve { delivered, mode, previewPath? } igual que el resto del mailer.
+ * ---------------------------------------------------------------------- */
+async function sendWelcomeEmail({ to, name, role = 'user', loginUrl, temporaryPassword = null, registeredBy = null }) {
+  const firstName = String(name || '').split(' ')[0] || 'a new';
+  const esStaff = ['admin', 'empleado'].includes(String(role).toLowerCase());
+  const url = loginUrl || (esStaff ? `${FRONT_URL}/#/login` : `${FRONT_URL}/#/acceder`);
+
+  const filas = [];
+  filas.push(`
+    <tr>
+      <td style="padding:10px 16px;font-size:12px;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;text-transform:uppercase;letter-spacing:1px;">Cuenta</td>
+      <td align="right" style="padding:10px 16px;font-size:13px;font-weight:bold;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">${to}</td>
+    </tr>`);
+  if (temporaryPassword) {
+    filas.push(`
+    <tr>
+      <td style="padding:10px 16px;font-size:12px;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;text-transform:uppercase;letter-spacing:1px;">Contraseña inicial</td>
+      <td align="right" style="padding:10px 16px;font-size:13px;font-weight:bold;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">${temporaryPassword}</td>
+    </tr>`);
+  }
+  if (registeredBy) {
+    filas.push(`
+    <tr>
+      <td style="padding:10px 16px;font-size:12px;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;text-transform:uppercase;letter-spacing:1px;">Creada por</td>
+      <td align="right" style="padding:10px 16px;font-size:13px;color:#6E6478;font-family:Arial,Helvetica,sans-serif;">${registeredBy}</td>
+    </tr>`);
+  }
+
+  const bodyHtml = `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #F6E3EC;border-radius:16px;overflow:hidden;">
+    <tr><td style="background:#FFF7EE;padding:6px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas.join('')}</table>
+    </td></tr>
+  </table>`;
+
+  const html = brandTemplate({
+    kicker: 'Bienvenido/a a AK Creaciones',
+    title: 'Hola' + (name ? ` ${firstName}` : '') + ', tu cuenta',
+    titleAccent: 'está lista',
+    intro:
+      (registeredBy
+        ? `El equipo de <b>AK Creaciones</b> creó tu cuenta para que disfrutes de la tienda. `
+        : 'Tu registro en <b>AK Creaciones</b> se completó con éxito. ') +
+      'Entra con tu correo y contraseña — o con Google/Apple si así te registraste.',
+    bodyHtml,
+    ctaLabel: 'Iniciar sesión',
+    ctaUrl: url,
+    footerNote:
+      'Nunca compartas tu contraseña con nadie del equipo: nunca te la pediremos por correo ni por WhatsApp. ' +
+      'Si no reconoces esta cuenta, responde a este mensaje para que la revisemos.',
+  });
+
+  const subject = 'Tu cuenta está lista · AK Creaciones';
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({ from: MAIL_FROM, to, subject, html });
+      return { delivered: true, mode: 'smtp' };
+    } catch (err) {
+      console.error('✗ Error enviando la bienvenida por SMTP:', err.message);
+      return { delivered: false, mode: 'smtp-error', error: err.message };
+    }
+  }
+
+  /* -------- Modo desarrollo: consola + archivo -------- */
+  console.log('\n──────────── 📧 BIENVENIDA (modo desarrollo) ────────────');
+  console.log(`Para: ${to} — ${subject}${temporaryPassword ? ` — contraseña inicial: ${temporaryPassword}` : ''}`);
+  console.log('──────────────────────────────────────────────────────────\n');
+
+  let previewPath;
+  try {
+    const dir = path.join(__dirname, '..', '..', '.mail-out');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `welcome-${Date.now()}.html`);
+    fs.writeFileSync(file, html);
+    previewPath = file;
+  } catch {
+    /* si no se puede escribir, con la consola basta */
+  }
+  return { delivered: true, mode: 'dev', previewPath };
+}
+
+module.exports = { sendPasswordReset, sendOrderInvoice, sendWelcomeEmail, FRONT_URL };

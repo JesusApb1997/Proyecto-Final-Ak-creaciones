@@ -21,6 +21,7 @@ const pool = require('../config/db');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../middleware/auth');
 const { sanitizeUsername, usernameValidationError } = require('../utils/username');
+const { sendWelcomeEmail } = require('../services/mailer');
 
 const TOKEN_TTL = '30d'; // los clientes permanecen con sesión en su móvil / PC
 
@@ -132,6 +133,12 @@ async function findOrCreateCustomer({ email, name, lastName = null, provider, pr
       [name || email.split('@')[0], lastName, email, passwordHash, provider, providerId, finalUsername]
     );
     user = inserted.rows[0];
+
+    /* Cuenta recién creada (correo, Google o Apple): correo de bienvenida.
+       Fire-and-forget — el registro no debe esperar al SMTP. */
+    sendWelcomeEmail({ to: user.email, name: user.name, role: 'user' })
+      .then((r) => console.log(`📧 Bienvenida a ${user.email}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
+      .catch((e) => console.error('✗ Error en correo de bienvenida:', e.message));
   } else {
     // Cuenta existente (creada a mano o por email): sincroniza la identidad social
     const patch = [];
@@ -235,6 +242,9 @@ const publicAuthController = {
         passwordHash: await bcrypt.hash(String(password), 10),
         username: finalUsername,
       });
+
+      /* Correo de bienvenida — ya se envía dentro de findOrCreateCustomer
+         cuando la cuenta es nueva (aquí siempre lo es: el 409 cubre duplicados) */
 
       const token = issueToken(user);
       res.status(201).json({

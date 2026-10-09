@@ -45,7 +45,9 @@ const forgetRemembered = () => {
   try { localStorage.removeItem(REMEMBER_KEY) } catch { /* noop */ }
 }
 
-export default function LoginPage({ onSuccess, onCustomerAuth }) {
+/* Pestaña de registro (#/registro): solo el alta de cuenta (correo · Google ·
+   Apple), sin el bloque del personal. registerOnly cambia el pie del formulario. */
+export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = false }) {
   /* Paso 1: elegir usuario · Paso 2: contraseña del usuario elegido */
   const [step, setStep] = useState('choose')
   const [accounts, setAccounts] = useState([])
@@ -342,10 +344,19 @@ export default function LoginPage({ onSuccess, onCustomerAuth }) {
             </form>
 
             <p className="store-switch">
-              ¿Eres del personal?
-              <button type="button" onClick={() => { setView('staff'); setJoinError('') }}>
-                Entra al panel
-              </button>
+              {registerOnly ? (
+                <>¿Ya tienes cuenta?
+                  <button type="button" onClick={() => (location.hash = '#/acceder')}>
+                    Inicia sesión
+                  </button>
+                </>
+              ) : (
+                <>¿Eres del personal?
+                  <button type="button" onClick={() => { setView('staff'); setJoinError('') }}>
+                    Entra al panel
+                  </button>
+                </>
+              )}
             </p>
           </>
         )}
