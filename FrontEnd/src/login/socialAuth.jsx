@@ -24,11 +24,27 @@ export const AppleLogo = () => (
   </svg>
 )
 
+/* ---------- ¿Qué proveedores están configurados? ----------
+   Vite reemplaza import.meta.env.* al arrancar, por eso se leen de forma
+   estática. Un proveedor sin credenciales NO se dibuja en la interfaz: así el
+   visitante nunca ve un botón que solo puede dar error. */
+export const socialConfig = {
+  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+  appleClientId: import.meta.env.VITE_APPLE_CLIENT_ID || '',
+  googleEnabled: Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID),
+  appleEnabled: Boolean(import.meta.env.VITE_APPLE_CLIENT_ID),
+}
+
 /* Carga el SDK de Google Identity Services una sola vez */
 function loadGoogleSdk(clientId) {
   return new Promise((resolve, reject) => {
     if (window.google?.accounts?.id) return resolve(window.google)
-    if (!clientId) return reject(new Error('Google Sign-In no está configurado todavía (VITE_GOOGLE_CLIENT_ID)'))
+    if (!clientId)
+      return reject(
+        new Error(
+          'Google Sign-In aún no está activo: falta VITE_GOOGLE_CLIENT_ID en FrontEnd/.env y reiniciar el servidor'
+        )
+      )
     const script = document.createElement('script')
     script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
@@ -74,6 +90,11 @@ export function googleCredential(clientId) {
           },
           auto_select: false,
           cancel_on_tap_outside: true,
+          /* One Tap a través de FedCM: es la migración que exige Google. Sin
+             esto, los métodos de estado del prompt (isNotDisplayed /
+             isSkippedMoment, que usa el respaldo de abajo) dejan de funcionar
+             cuando FedCM pase a ser obligatorio. */
+          use_fedcm_for_prompt: true,
         })
         /* One Tap: ventana nativa de Google con las cuentas del navegador */
         g.accounts.id.prompt((notification) => {

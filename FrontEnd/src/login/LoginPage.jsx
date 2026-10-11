@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { authApi } from '../api/auth.js'
 import { storeAuthApi, storeRemember } from '../api/storeAuth.js'
 import { cdn } from '../config.js'
-import { GoogleLogo, AppleLogo, googleCredential, appleSignInToken, isAppleCancel } from './socialAuth.jsx'
+import { GoogleLogo, AppleLogo, googleCredential, appleSignInToken, isAppleCancel, socialConfig } from './socialAuth.jsx'
 import './storeLogin.css'
 
 const initials = (u) => `${u?.name?.[0] ?? '?'}${u?.last_name?.[0] ?? ''}`.toUpperCase()
@@ -73,6 +73,13 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
   const [joinBusy, setJoinBusy] = useState(false)
   const [social, setSocial] = useState('') // 'google' | 'apple' | ''
   const [showJoinPass, setShowJoinPass] = useState(false)
+
+  /* Proveedores sociales realmente configurados (Vite lee las VITE_* al arrancar) */
+  const socialNames = [
+    socialConfig.googleEnabled && 'Google',
+    socialConfig.appleEnabled && 'Apple',
+  ].filter(Boolean)
+  const hasSocial = socialNames.length > 0
 
   /* Usuario recordado + opción "usar otro usuario" en esta visita */
   const [remembered, setRemembered] = useState(loadRemembered)
@@ -197,7 +204,7 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
     setJoinError('')
     setSocial('google')
     try {
-      const credential = await googleCredential(import.meta.env.VITE_GOOGLE_CLIENT_ID)
+      const credential = await googleCredential(socialConfig.googleClientId)
       const data = await storeAuthApi.google({ credential })
       enterStore(data, { socialLogin: true })
     } catch (err) {
@@ -211,9 +218,9 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
     setJoinError('')
     setSocial('apple')
     try {
-      const clientId = import.meta.env.VITE_APPLE_CLIENT_ID
+      const clientId = socialConfig.appleClientId
       if (!clientId) {
-        throw new Error('Apple Sign-In no está configurado todavía (VITE_APPLE_CLIENT_ID)')
+        throw new Error('Apple Sign-In aún no está activo (falta VITE_APPLE_CLIENT_ID en FrontEnd/.env)')
       }
       const { idToken, user } = await appleSignInToken(clientId)
       const data = await storeAuthApi.apple({ id_token: idToken, user })
@@ -242,31 +249,42 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
             <h1 className="login-title">
               Crea tu <span className="accent">cuenta</span>
             </h1>
-            <p className="login-sub">Registro básico de usuario — con Google, Apple o tu correo</p>
+            <p className="login-sub">
+              {hasSocial
+                ? `Registro básico de usuario — con ${socialNames.join(', ')} o tu correo`
+                : 'Registro básico de usuario — con tu correo'}
+            </p>
 
-            {/* ===== Botones sociales ===== */}
-            <div className="store-social">
-              <button
-                type="button"
-                className="store-social-btn google"
-                onClick={joinWithGoogle}
-                disabled={joinBusy || !!social}
-              >
-                <GoogleLogo />
-                {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
-              </button>
-              <button
-                type="button"
-                className="store-social-btn apple"
-                onClick={joinWithApple}
-                disabled={joinBusy || !!social}
-              >
-                <AppleLogo />
-                {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
-              </button>
-            </div>
+            {/* ===== Botones sociales =====
+                Solo se dibuja el proveedor con credenciales configuradas. */}
+            {hasSocial && (
+              <div className="store-social">
+                {socialConfig.googleEnabled && (
+                  <button
+                    type="button"
+                    className="store-social-btn google"
+                    onClick={joinWithGoogle}
+                    disabled={joinBusy || !!social}
+                  >
+                    <GoogleLogo />
+                    {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
+                  </button>
+                )}
+                {socialConfig.appleEnabled && (
+                  <button
+                    type="button"
+                    className="store-social-btn apple"
+                    onClick={joinWithApple}
+                    disabled={joinBusy || !!social}
+                  >
+                    <AppleLogo />
+                    {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
+                  </button>
+                )}
+              </div>
+            )}
 
-            <div className="store-divider">o regístrate con tu correo</div>
+            {hasSocial && <div className="store-divider">o regístrate con tu correo</div>}
 
             {/* ===== Formulario básico: nombre · correo · contraseña ===== */}
             <form className="store-form" onSubmit={submitJoin}>

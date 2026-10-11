@@ -14,6 +14,7 @@
  * backend JAMÁS confía en datos sin verificar. El campo "role" del body nunca se
  * acepta en el registro público: un atacante no puede autoproclamarse admin.
  */
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { createRemoteJWKSet, jwtVerify } = require('jose');
@@ -21,8 +22,9 @@ const pool = require('../config/db');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../middleware/auth');
 const { sanitizeUsername, usernameValidationError } = require('../utils/username');
-const { sendWelcomeEmail } = require('../services/mailer');
+const { sendWelcomeEmail, sendPasswordReset, FRONT_URL } = require('../services/mailer');
 
+const RESET_TTL_MIN = 30; // minutos de validez del enlace de recuperación
 const TOKEN_TTL = '30d'; // los clientes permanecen con sesión en su móvil / PC
 
 /* Roles con acceso al panel de administración (los usuarios comunes NO entran al panel) */
@@ -412,6 +414,112 @@ const publicAuthController = {
           ? 'No se pudo verificar el token de Apple. Revisa APPLE_CLIENT_ID en el backend.'
           : err.message;
       res.status(401).json({ success: false, message: msg });
+    }
+  },
+
+  /* ================================================================
+   * POST /api/store-auth/forgot-password  (público)
+   * Body: { email } — envía por correo el enlace de restablecimiento.
+   * El enlace lleva un token de 16 bytes (URL-safe) guardado como SHA-256 en BD.
+   * Responde siempre con el mismo mensaje para no confirmar si el email existe.
+   * ================================================================ */
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'El campo "email" es obligatorio' });
+      }
+      const em = String(email).trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(em)) {
+        return res.status(400).json({ success: false, message: 'Formato de correo inválido' });
+      }
+
+      const token = crypto.randomBytes(16).toString('base64url');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = new Date(Date.now() + RESET_TTL_MIN * 60_000);
+
+      await pool.query(
+        `UPDATE users
+         SET reset_token_hash = $1,
+             reset_token_expires = $2,
+             reset_token_used = false,
+             updated_at = NOW()
+         WHERE lower(email) = $3
+         RETURNING id`,
+        [tokenHash, expiresAt, em],
+      );
+
+      // El enlace lleva el TOKEN EN CLARO (solo el hash se guarda en BD).
+      const resetUrl = `${FRONT_URL}/#/reset-password?token=${token}`;
+
+      /* Fire-and-forget: el registro no espera al SMTP.
+         Si el SMTP no está configurado, sendPasswordReset imprime en consola y
+         guarda el HTML en BackEnd/.mail-out para poder probarlo. */
+      sendPasswordReset({ to: em, name: null, token })
+        .then((r) => console.log(`📧 Reset password a ${em}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
+        .catch((e) => console.error('✗ Error enviando correo de reset:', e.message));
+
+      res.json({ success: true, message: 'Si ese correo está registrado, recibiste un enlace para restablecer tu contraseña.' });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ================================================================
+   * POST /api/store-auth/reset-password  (público)
+   * Body: { token, password }
+   * Restablece la contraseña si el token es válido, no ha expirado y no se
+   * ha usado. Después marca el token como usado para que no se pueda reusar.
+   * ================================================================ */
+  async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ success: false, message: 'Los campos "token" y "password" son obligatorios' });
+      }
+      if (String(password).length < 4) {
+        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 4 caracteres' });
+      }
+      if (!/^\S+@\S+\.\S+$/.test(String(password))) {
+        // no, quitar
+      }
+
+      const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+
+      const { rows } = await pool.query(
+        `SELECT id, email, name, last_name, password_hash
+         FROM users
+         WHERE reset_token_hash = $1
+           AND reset_token_expires > NOW()
+           AND (reset_token_used = false OR reset_token_used IS NULL)`,
+        [tokenHash],
+      );
+
+      if (!rows[0]) {
+        return res.status(400).json({ success: false, message: 'El enlace no es válido o ya expiró. Pide uno nuevo.' });
+      }
+
+      const user = rows[0];
+      const hash = await bcrypt.hash(String(password), 10);
+
+      await pool.query(
+        `UPDATE users
+         SET password_hash = $1,
+             reset_token_hash = NULL,
+             reset_token_expires = NULL,
+             reset_token_used = true,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [hash, user.id],
+      );
+
+      /* Correo de confirmación — fire-and-forget. */
+      sendWelcomeEmail({ to: user.email, name: user.name, role: 'user' })
+        .catch((e) => console.error('✗ Error enviando correo de confirmación de reset:', e.message));
+
+      res.json({ success: true, message: 'Contraseña restablecida correctamente. Ya puedes iniciar sesión con la nueva.' });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 

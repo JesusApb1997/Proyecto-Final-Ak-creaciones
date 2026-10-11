@@ -223,6 +223,19 @@ export const storeAuthApi = {
     })
     return data
   },
+
+  /* Recuperación de contraseña por correo
+     POST /api/store-auth/forgot-password  -> envía el enlace de reset
+     POST /api/store-auth/reset-password   -> restablece con el token del enlace */
+  forgotPassword: async (email) => {
+    const { data } = await api.post('/store-auth/forgot-password', { email })
+    return data
+  },
+
+  resetPassword: async ({ token, password }) => {
+    const { data } = await api.post('/store-auth/reset-password', { token, password })
+    return data
+  },
 }
 
 /* ---------- Pedidos del carrito (factura por correo) ----------

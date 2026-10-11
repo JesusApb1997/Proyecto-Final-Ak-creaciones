@@ -1,25 +1,35 @@
-import { useState } from 'react'
-import { authApi } from '../api/auth.js'
-import { cdn } from '../config.js'
-
 /* ==========================================================================
-   Recuperar contraseña — paso 1: pedir el enlace por correo
-   Ruta: #/forgot-password
+   src/login/ForgotPasswordPage.jsx — Recuperar contraseña del cliente (#/forgot-password)
+   El cliente escribe su correo; el backend envía por correo el enlace de reset
+   (token SHA-256 guardado en BD, expira en 30 min). Respuesta idéntica siempre
+   para no confirmar si el email existe.
    ========================================================================== */
-export default function ForgotPasswordPage() {
+import { useState } from 'react'
+import { cdn } from '../config.js'
+import { storeAuthApi } from '../api/storeAuth.js'
+
+export default function ForgotPasswordPage({ onBack }) {
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
     setError('')
+    setInfo('')
+    if (!email.trim()) {
+      setError('Escribe tu correo electrónico')
+      return
+    }
     setLoading(true)
     try {
-      // El backend responde 200 aunque el correo no exista (no revela cuentas)
-      await authApi.forgotPassword(String(email).trim())
-      setSent(true)
+      const data = await storeAuthApi.forgotPassword(email)
+      if (data?.success) {
+        setInfo(`Si ${email} está registrado, acabas de recibir un enlace para crear una nueva contraseña. Revisa tu casilla (y spam).`)
+      } else {
+        setError(data?.message || 'No se pudo enviar el enlace')
+      }
     } catch (err) {
       setError(err?.message || 'No pudimos conectar con el servidor')
     } finally {
@@ -28,86 +38,82 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo">
+    <div className="store-login-page">
+      <div className="store-login-card">
+        <div className="store-login-logo">
           <img src={cdn('/assets/brand/logo-ak.png')} alt="Logo AK Creaciones" />
           <span className="brand-name">
             AK <em>Creaciones</em>
           </span>
         </div>
 
-        {sent ? (
-          <>
-            <p className="kicker">Recuperar contraseña</p>
-            <h1 className="login-title">
-              Revisa tu <span className="accent">correo</span>
-            </h1>
-            <p className="login-sub">
-              Si <strong>{email}</strong> está registrado, te enviamos un enlace para restablecer tu
-              contraseña. El enlace expira en 30 minutos.
+        <p className="store-kicker">Recuperar contraseña</p>
+        <h1 className="store-login-title">
+          <span className="accent">Restablece</span> tu contraseña
+        </h1>
+        <p className="store-login-sub">
+          Escribe el correo que usaste al registrarte y te enviamos un enlace para crear una nueva.
+        </p>
+
+        <form className="store-form" onSubmit={submit}>
+          <label className="store-field">
+            <span>Correo electrónico</span>
+            <div className="store-input">
+              <i className="bi bi-envelope"></i>
+              <input
+                type="email"
+                placeholder="tucorreo@gmail.com"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </label>
+
+          {error && (
+            <p className="store-error" role="alert">
+              <i className="bi bi-exclamation-circle"></i> {error}
             </p>
-            <p className="login-sub" style={{ marginTop: '-1.2rem' }}>
-              ¿No lo encuentras? Revisa la carpeta de spam.
+          )}
+          {info && (
+            <p className="store-info">
+              <i className="bi bi-info-circle"></i> {info}
             </p>
-            <a className="btn btn-grad btn-block" href="#/login" style={{ maxWidth: 420 }}>
-              <i className="bi bi-box-arrow-in-right"></i> Volver al login
-            </a>
-          </>
-        ) : (
-          <>
-            <p className="kicker">Recuperar contraseña</p>
-            <h1 className="login-title">
-              ¿Olvidaste tu <span className="accent">contraseña</span>?
-            </h1>
-            <p className="login-sub">
-              Escribe tu correo y te enviaremos un enlace para crear una nueva.
-            </p>
+          )}
 
-            <form onSubmit={submit} className="login-form">
-              <label className="lf-field">
-                <span>Correo electrónico</span>
-                <div className="lf-input">
-                  <i className="bi bi-envelope"></i>
-                  <input
-                    type="email"
-                    placeholder="tucorreo@gmail.com"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-              </label>
+          <button
+            type="submit"
+            className="store-social-btn store-submit"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="store-spinner"></span> Enviando…
+              </>
+            ) : (
+              <>
+                <i className="bi bi-envelope"></i> Enviar enlace
+              </>
+            )}
+          </button>
+        </form>
 
-              {error && (
-                <p className="login-error" role="alert">
-                  <i className="bi bi-exclamation-circle"></i> {error}
-                </p>
-              )}
-
-              <button type="submit" className="btn btn-grad btn-block" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner" aria-hidden="true"></span> Enviando…
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-send"></i> Enviar enlace de recuperación
-                  </>
-                )}
-              </button>
-
-              <a className="login-back" href="#/login">
-                <i className="bi bi-arrow-left"></i> Volver al login
-              </a>
-            </form>
-          </>
-        )}
-      </div>
-
-      <div className="login-aside" aria-hidden="true">
-        <img src={cdn('/products/zarcillo-fiesta.jpeg')} alt="" />
+        <a
+          className="store-back"
+          href="#/acceder"
+          onClick={(e) => {
+            if (onBack) {
+              e.preventDefault()
+              onBack()
+            } else {
+              window.location.hash = '#/acceder'
+            }
+          }}
+        >
+          <i className="bi bi-arrow-left"></i> Volver al inicio de sesión
+        </a>
       </div>
     </div>
   )

@@ -7,13 +7,22 @@
 import { useEffect, useState } from 'react'
 import { storeAuthApi, storeSession, storeRemember } from '../api/storeAuth.js'
 import { cdn } from '../config.js'
-import { GoogleLogo, AppleLogo, googleCredential, appleSignInToken, isAppleCancel } from './socialAuth.jsx'
+import { GoogleLogo, AppleLogo, googleCredential, appleSignInToken, isAppleCancel, socialConfig } from './socialAuth.jsx'
 import './storeLogin.css'
 
 export default function StoreLoginPage({ onSuccess }) {
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [form, setForm] = useState({ name: '', username: '', email: '', password: '' })
-  const [error, setError] = useState('')
+  /* Si se vuelve de un OAuth fallido, App.jsx deja aquí el motivo */
+  const [error, setError] = useState(() => {
+    try {
+      const pending = sessionStorage.getItem('ak-store-oauth-error')
+      if (pending) sessionStorage.removeItem('ak-store-oauth-error')
+      return pending || ''
+    } catch {
+      return ''
+    }
+  })
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false) // flujo email
   const [social, setSocial] = useState('') // 'google' | 'apple' | ''
@@ -99,8 +108,7 @@ export default function StoreLoginPage({ onSuccess }) {
     setInfo('')
     setSocial('google')
     try {
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-      const credential = await googleCredential(clientId)
+      const credential = await googleCredential(socialConfig.googleClientId)
       const result = await storeAuthApi.google({ credential })
       finish(result, { socialLogin: true })
     } catch (err) {
@@ -116,9 +124,9 @@ export default function StoreLoginPage({ onSuccess }) {
     setInfo('')
     setSocial('apple')
     try {
-      const clientId = import.meta.env.VITE_APPLE_CLIENT_ID
+      const clientId = socialConfig.appleClientId
       if (!clientId) {
-        throw new Error('Apple Sign-In no está configurado todavía (VITE_APPLE_CLIENT_ID)')
+        throw new Error('Apple Sign-In aún no está activo (falta VITE_APPLE_CLIENT_ID en FrontEnd/.env)')
       }
       /* Con usePopup, Apple entrega { idToken, user? } (el nombre solo la 1ª vez) */
       const { idToken, user } = await appleSignInToken(clientId)
@@ -135,6 +143,12 @@ export default function StoreLoginPage({ onSuccess }) {
   }
 
   const isLogin = mode === 'login'
+  /* Proveedores realmente configurados (VITE_GOOGLE_CLIENT_ID / VITE_APPLE_CLIENT_ID) */
+  const socialNames = [
+    socialConfig.googleEnabled && 'Google',
+    socialConfig.appleEnabled && 'Apple',
+  ].filter(Boolean)
+  const hasSocial = socialNames.length > 0
 
   return (
     <div className="store-login-page">
@@ -156,8 +170,12 @@ export default function StoreLoginPage({ onSuccess }) {
         </h1>
         <p className="store-login-sub">
           {isLogin
-            ? 'Accede con tu usuario, correo, Google o Apple'
-            : 'Crea tu cuenta con usuario y contraseña propios, o entra con Google/Apple'}
+            ? hasSocial
+              ? `Accede con tu usuario, correo, ${socialNames.join(' o ')}`
+              : 'Accede con tu usuario o tu correo'
+            : hasSocial
+              ? `Crea tu cuenta con usuario y contraseña propios, o entra con ${socialNames.join(' o ')}`
+              : 'Crea tu cuenta con tu correo y una contraseña propia'}
         </p>
 
         {/* ===== Acceso rápido con el usuario recordado ===== */}
@@ -172,30 +190,38 @@ export default function StoreLoginPage({ onSuccess }) {
           </button>
         )}
 
-        {/* ===== Botones sociales ===== */}
-        <div className="store-social">
-          <button
-            type="button"
-            className="store-social-btn google"
-            onClick={loginWithGoogle}
-            disabled={loading || !!social}
-          >
-            <GoogleLogo />
-            {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
-          </button>
+        {/* ===== Botones sociales =====
+            Solo se dibuja el proveedor que tenga credenciales configuradas:
+            Google necesita VITE_GOOGLE_CLIENT_ID y Apple VITE_APPLE_CLIENT_ID. */}
+        {hasSocial && (
+          <div className="store-social">
+            {socialConfig.googleEnabled && (
+              <button
+                type="button"
+                className="store-social-btn google"
+                onClick={loginWithGoogle}
+                disabled={loading || !!social}
+              >
+                <GoogleLogo />
+                {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
+              </button>
+            )}
 
-          <button
-            type="button"
-            className="store-social-btn apple"
-            onClick={loginWithApple}
-            disabled={loading || !!social}
-          >
-            <AppleLogo />
-            {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
-          </button>
-        </div>
+            {socialConfig.appleEnabled && (
+              <button
+                type="button"
+                className="store-social-btn apple"
+                onClick={loginWithApple}
+                disabled={loading || !!social}
+              >
+                <AppleLogo />
+                {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
+              </button>
+            )}
+          </div>
+        )}
 
-        <div className="store-divider">o con tu correo</div>
+        {hasSocial && <div className="store-divider">o con tu correo</div>}
 
         {/* ===== Formulario email ===== */}
         <form className="store-form" onSubmit={submitEmail}>
@@ -310,16 +336,27 @@ export default function StoreLoginPage({ onSuccess }) {
 
         <p className="store-switch">
           {isLogin ? (
-            <>¿Primera vez aquí?
+            <>
+              ¿Primera vez aquí?
               <button type="button" onClick={() => { setMode('register'); setError(''); setInfo('') }}>
                 Crear una cuenta
               </button>
+              <br />
+              ¿Olvidaste tu contraseña?
+              <a href="#/forgot-password" className="store-forgot">
+                Recuperarla
+              </a>
             </>
           ) : (
             <>¿Ya tienes cuenta?
               <button type="button" onClick={() => { setMode('login'); setError(''); setInfo('') }}>
                 Inicia sesión
               </button>
+              <br />
+              ¿Olvidaste tu contraseña?
+              <a href="#/forgot-password" className="store-forgot">
+                Recuperarla
+              </a>
             </>
           )}
         </p>

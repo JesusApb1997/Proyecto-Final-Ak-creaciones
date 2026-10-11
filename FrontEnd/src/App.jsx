@@ -502,7 +502,9 @@ export default function App() {
       return
     }
     sessionStorage.removeItem('ak-oauth-state')
-    history.replaceState(null, '', location.pathname) // limpia la URL
+    /* Google redirige a /auth/google: vuelve a la raíz para no dejar esa ruta
+       pegada en la barra de direcciones. */
+    history.replaceState(null, '', `${location.origin}/`)
     location.hash = '#/acceder'
     storeAuthApi
       .google({ code })
@@ -513,11 +515,19 @@ export default function App() {
       })
       .catch((err) => {
         console.error('[Google OAuth]', err?.message)
+        /* Deja el motivo a la vista: StoreLoginPage lo muestra al abrirse */
+        try {
+          sessionStorage.setItem('ak-store-oauth-error', err?.message || 'No se pudo continuar con Google')
+        } catch {
+          /* noop */
+        }
         location.hash = '#/acceder'
       })
   }, [])
 
   // Rutas de recuperación: accesibles sin sesión (y no redirigen al dashboard)
+  // Rutas de recuperación del CLIENTE (login público #/acceder):
+  // /acceder → olvidé mi contraseña → /reset-password?token=...
   if (route.startsWith('#/forgot-password')) return <ForgotPasswordPage />
   if (route.startsWith('#/reset-password')) return <ResetPasswordPage />
 

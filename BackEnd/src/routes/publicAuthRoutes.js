@@ -20,6 +20,12 @@ router.post('/google', publicAuthController.google);
 // POST /api/store-auth/apple    -> login/registro con Apple (id_token)
 router.post('/apple', publicAuthController.apple);
 
+// POST /api/store-auth/forgot-password  -> envía el enlace de restablecimiento por correo
+router.post('/forgot-password', publicAuthController.forgotPassword);
+
+// POST /api/store-auth/reset-password   -> restablece la contraseña con el token del enlace
+router.post('/reset-password', publicAuthController.resetPassword);
+
 // GET  /api/store-auth/me       -> perfil del token (protegido)
 router.get('/me', verifyToken, publicAuthController.me);
 
