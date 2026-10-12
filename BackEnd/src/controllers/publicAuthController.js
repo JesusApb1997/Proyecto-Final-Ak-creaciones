@@ -145,9 +145,8 @@ async function findOrCreateCustomer({ email, name, lastName = null, provider, pr
 
     /* Cuenta recién creada (correo, Google o Apple): correo de bienvenida.
        Fire-and-forget — el registro no debe esperar al SMTP. */
-    sendWelcomeEmail({ to: user.email, name: user.name, role: 'user' })
-      .then((r) => console.log(`📧 Bienvenida a ${user.email}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
-      .catch((e) => console.error('✗ Error en correo de bienvenida:', e.message));
+    const welcome = await sendWelcomeEmail({ to: user.email, name: user.name, role: 'user' });
+    console.log(`📧 Bienvenida a ${user.email}: ${welcome.mode}${welcome.delivered ? ' ✓' : ' ✗'}`);
   } else {
     // Cuenta existente (creada a mano o por email): sincroniza la identidad social
     const patch = [];
@@ -440,26 +439,23 @@ const publicAuthController = {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + RESET_TTL_MIN * 60_000);
 
-      await pool.query(
+      const { rows } = await pool.query(
         `UPDATE users
          SET reset_token_hash = $1,
              reset_token_expires = $2,
              reset_token_used = false,
              updated_at = NOW()
          WHERE lower(email) = $3
-         RETURNING id`,
+         RETURNING id, name`,
         [tokenHash, expiresAt, em],
       );
 
-      // El enlace lleva el TOKEN EN CLARO (solo el hash se guarda en BD).
-      const resetUrl = `${FRONT_URL}/#/reset-password?token=${token}`;
-
-      /* Fire-and-forget: el registro no espera al SMTP.
-         Si el SMTP no está configurado, sendPasswordReset imprime en consola y
-         guarda el HTML en BackEnd/.mail-out para poder probarlo. */
-      sendPasswordReset({ to: em, name: null, token })
-        .then((r) => console.log(`📧 Reset password a ${em}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
-        .catch((e) => console.error('✗ Error enviando correo de reset:', e.message));
+      if (rows[0]) {
+        /* Fire-and-forget: la respuesta genérica no revela si la cuenta existe. */
+        sendPasswordReset({ to: em, name: rows[0].name, token })
+          .then((r) => console.log(`📧 Reset password a ${em}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
+          .catch((e) => console.error('✗ Error enviando correo de reset:', e.message));
+      }
 
       res.json({ success: true, message: 'Si ese correo está registrado, recibiste un enlace para restablecer tu contraseña.' });
     } catch (err) {

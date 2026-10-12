@@ -5,7 +5,7 @@
 const pool = require('../config/db');
 
 /* Columnas editables */
-const EDITABLE_COLS = ['name', 'last_name', 'phone', 'address', 'localidad', 'items', 'total', 'status', 'notes', 'user_id'];
+const EDITABLE_COLS = ['name', 'last_name', 'phone', 'address', 'localidad', 'maps_url', 'items', 'total', 'status', 'notes', 'user_id'];
 
 /* La columna items es JSONB: pg serializa arrays de JS como arrays de
    Postgres ({...}) y eso rompe la inserción. Hay que enviar una cadena JSON. */
@@ -34,10 +34,10 @@ const Delivery = {
   },
 
   // Crear un nuevo pedido de delivery
-  async create({ name, last_name, phone, address, localidad, items, total, status = 'pendiente', notes, user_id }) {
+  async create({ name, last_name, phone, address, localidad, maps_url, items, total, status = 'pendiente', notes, user_id, order_number, invoice_number }) {
     const result = await pool.query(
-      `INSERT INTO "Delivery" (name, last_name, phone, address, localidad, items, total, status, notes, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO "Delivery" (name, last_name, phone, address, localidad, maps_url, items, total, status, notes, user_id, order_number, invoice_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         name,
@@ -45,12 +45,36 @@ const Delivery = {
         phone,
         address,
         localidad ?? null,
+        maps_url ?? null,
         toJsonParam(items),
         total ?? 0,
         status,
         notes ?? null,
         user_id ?? null,
+        order_number ?? null,
+        invoice_number ?? null,
       ]
+    );
+    return result.rows[0];
+  },
+
+  async assignDriver(id, { driver_name, driver_phone, location_confirmed }) {
+    const result = await pool.query(
+      `UPDATE "Delivery"
+       SET driver_name = $1, driver_phone = $2, location_confirmed = $3,
+           status = 'en_camino', whatsapp_status = 'pendiente', updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [driver_name, driver_phone, location_confirmed, id]
+    );
+    return result.rows[0];
+  },
+
+  async setWhatsAppStatus(id, status, sentAt = null) {
+    const result = await pool.query(
+      `UPDATE "Delivery" SET whatsapp_status = $1, whatsapp_sent_at = $2, updated_at = NOW()
+       WHERE id = $3 RETURNING *`,
+      [status, sentAt, id]
     );
     return result.rows[0];
   },

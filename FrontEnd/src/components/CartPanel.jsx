@@ -4,9 +4,11 @@ import { storeOrdersApi, storeSession } from '../api/storeAuth.js'
 import DeliveryForm from '../cart/DeliveryForm.jsx'
 import MobilePaymentModal from '../cart/MobilePaymentModal.jsx'
 
-export default function CartPanel({ open, items, total, onClose, onRemove, toast }) {
+export default function CartPanel({ open, items, total, onClose, onRemove, onPaid, toast, userSession }) {
   /* ¿Hay un cliente con sesión? Su token permite enviarle la factura por correo */
   const [cliente, setCliente] = useState(() => storeSession.get())
+  const activeSession = userSession ?? cliente
+  const paymentSession = activeSession
   const [sending, setSending] = useState(false)
   /* Formulario "Delivery a mi localidad": se abre sobre el carrito */
   const [deliveryOpen, setDeliveryOpen] = useState(false)
@@ -17,7 +19,11 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
   useEffect(() => {
     const sync = () => setCliente(storeSession.get())
     window.addEventListener('ak-store-session-changed', sync)
-    return () => window.removeEventListener('ak-store-session-changed', sync)
+    window.addEventListener('ak-session-cleared', sync)
+    return () => {
+      window.removeEventListener('ak-store-session-changed', sync)
+      window.removeEventListener('ak-session-cleared', sync)
+    }
   }, [])
 
   const handleCheckout = async () => {
@@ -50,11 +56,12 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
     /* 4) Registrar el pedido en el backend con el token del cliente:
           verifica la identidad, recalcula el total en el servidor y envía a su
           correo la factura estilizada con el monto y el detalle del pedido. */
-    if (cliente?.token) {
+    if (activeSession?.token) {
       setSending(true)
       try {
         const res = await storeOrdersApi.create(
-          items.map((i) => ({ id: i.id, qty: i.qty, color: i.color, size: i.size }))
+          items.map((i) => ({ id: i.id, qty: i.qty, color: i.color, size: i.size })),
+          activeSession.token
         )
         toast?.(
           `🧾 Pedido ${res?.orderNumber ?? ''} registrado — la factura llegó a ${res?.email ?? 'tu correo'}`
@@ -111,7 +118,7 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
           </div>
 
           {/* Cliente con sesión: la factura llega a su correo tras confirmar */}
-          {cliente?.token ? (
+          {activeSession?.token ? (
             <>
               {/* ===== Delivery a su localidad =====
                   El cliente anexa teléfono, nombre, apellido y dirección;
@@ -143,7 +150,7 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
               </button>
               <p className="cart-note">
                 <i className="bi bi-envelope-check"></i> Te llevamos a WhatsApp y te enviaremos la factura a{' '}
-                <strong>{cliente.user?.email}</strong>
+                <strong>{activeSession.user?.email}</strong>
               </p>
             </>
           ) : (
@@ -156,7 +163,7 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
                   el botón lleva al login de la tienda. */}
               <button
                 className="btn btn-pago-movil"
-                onClick={() => (location.hash = '#/acceder')}
+                onClick={() => setPagoOpen(true)}
                 disabled={!items.length}
               >
                 <i className="bi bi-credit-card-2-front"></i> Pagar por Pago Móvil
@@ -178,19 +185,24 @@ export default function CartPanel({ open, items, total, onClose, onRemove, toast
 
       {/* ===== Modal de datos de delivery ===== */}
       <DeliveryForm
-        open={deliveryOpen && !!cliente?.token}
+        open={deliveryOpen && !!activeSession?.token}
         items={items}
         total={total}
+        userSession={activeSession}
         onClose={() => setDeliveryOpen(false)}
+        onLogin={() => { setDeliveryOpen(false); location.hash = '#/acceder' }}
         toast={toast}
       />
 
       {/* ===== Ventana de Pago Móvil ===== */}
       <MobilePaymentModal
-        open={pagoOpen && !!cliente?.token}
+        open={pagoOpen}
         items={items}
         total={total}
+        userSession={paymentSession}
         onClose={() => setPagoOpen(false)}
+        onLogin={() => { setPagoOpen(false); location.hash = '#/acceder' }}
+        onPaid={onPaid}
         toast={toast}
       />
     </>

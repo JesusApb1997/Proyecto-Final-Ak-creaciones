@@ -24,15 +24,32 @@ async function migrateDelivery() {
         phone       VARCHAR(40)  NOT NULL,
         address     TEXT         NOT NULL,
         localidad   VARCHAR(160),
+        maps_url    TEXT,
         items       JSONB,
         total       NUMERIC(12,2) DEFAULT 0,
         status      VARCHAR(20)  DEFAULT 'pendiente',
         notes       TEXT,
+        order_number VARCHAR(50),
+        invoice_number VARCHAR(60),
+        driver_name VARCHAR(120),
+        driver_phone VARCHAR(40),
+        location_confirmed BOOLEAN NOT NULL DEFAULT false,
+        whatsapp_status VARCHAR(24) NOT NULL DEFAULT 'pendiente',
+        whatsapp_sent_at TIMESTAMPTZ,
         user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at  TIMESTAMPTZ  DEFAULT NOW(),
         updated_at  TIMESTAMPTZ  DEFAULT NOW()
       );
     `);
+
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS maps_url TEXT');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS order_number VARCHAR(50)');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(60)');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS driver_name VARCHAR(120)');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS driver_phone VARCHAR(40)');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS location_confirmed BOOLEAN NOT NULL DEFAULT false');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS whatsapp_status VARCHAR(24) NOT NULL DEFAULT \'pendiente\'');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS whatsapp_sent_at TIMESTAMPTZ');
 
     /* Estado controlado por la app (coincide con los pills del dashboard) */
     await pool.query(`

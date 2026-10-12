@@ -23,7 +23,16 @@ const SMTP_HOST = process.env.SMTP_HOST || (EMAIL_USER && EMAIL_PASS ? 'smtp.gma
 const SMTP_USER = (process.env.SMTP_USER || EMAIL_USER).trim();
 const SMTP_PASS = (process.env.SMTP_PASS || EMAIL_PASS).trim();
 const SMTP_PORT = Number(process.env.SMTP_PORT || (SMTP_HOST === 'smtp.gmail.com' ? 465 : 587));
-const MAIL_FROM = process.env.MAIL_FROM || 'AK Creaciones <no-reply@akcreaciones.com>';
+const CONFIGURED_MAIL_FROM = process.env.MAIL_FROM || 'AK Creaciones <no-reply@akcreaciones.com>';
+const SMTP_SENDER_EMAIL = (SMTP_USER || EMAIL_USER).trim();
+const configuredFromAddress = (CONFIGURED_MAIL_FROM.match(/<([^>]+)>/) || [])[1] || CONFIGURED_MAIL_FROM;
+const alignGmailSender =
+  SMTP_HOST.toLowerCase() === 'smtp.gmail.com' &&
+  SMTP_SENDER_EMAIL.includes('@') &&
+  configuredFromAddress.split('@').pop().toLowerCase() !== SMTP_SENDER_EMAIL.split('@').pop().toLowerCase();
+const MAIL_FROM = alignGmailSender
+  ? `AK Creaciones <${SMTP_SENDER_EMAIL}>`
+  : CONFIGURED_MAIL_FROM;
 
 /* Origen del frontend para armar los enlaces (hash router) */
 const FRONT_URL = String(process.env.FRONT_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -42,6 +51,9 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
   console.log(`📧 Mailer SMTP listo (${SMTP_HOST}:${SMTP_PORT} como ${SMTP_USER})`);
+  if (alignGmailSender) {
+    console.warn('⚠ MAIL_FROM no coincide con la cuenta SMTP; se usará la cuenta autenticada para alinear el remitente.');
+  }
 } else {
   console.log('📧 Mailer en modo desarrollo: los correos se imprimen en consola y se guardan en BackEnd/.mail-out/');
 }
@@ -206,13 +218,17 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0, 
         ${filaPago('Teléfono', payment.phone)}
         ${filaPago('Cédula / RIF', payment.cedula)}
         ${filaPago('Titular', payment.holder_name)}
+        ${filaPago('Banco emisor reportado', payment.payer_bank)}
+        ${filaPago('Teléfono pagador', payment.payer_phone)}
+        ${filaPago('Monto reportado', payment.reported_amount != null ? fmtMoney(payment.reported_amount) : null)}
+        ${filaPago('Referencia', payment.reference_number)}
       </table>
     </td></tr>
   </table>`
     : '';
 
   const notaIntro = esPagoMovil
-    ? `¡Recibimos tu <b>pago móvil</b> por <b>${fmtMoney(total)}</b>! En breve confirmaremos el pago y coordinaremos el envío de tu pedido por WhatsApp.`
+    ? `Gracias por tu compra. Recibimos tu reporte de <b>Pago Móvil</b> por <b>${fmtMoney(total)}</b>; verificaremos el pago y coordinaremos contigo la entrega.`
     : 'Recibimos tu pedido: en breve continuaremos la coordinación de <b>pago y envío</b> por WhatsApp.';
 
   /* Tabla de artículos (HTML por tablas + estilos inline, compatible Gmail/Outlook) */
@@ -269,14 +285,15 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0, 
   <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6E6478;font-family:Arial,Helvetica,sans-serif;">
     <i style="color:#1FA2C7;">✦</i> ${notaIntro}
   </p>
+  ${esPagoMovil ? `<p style="margin:0 0 22px;font-size:12px;line-height:1.6;color:#6E6478;font-family:Arial,Helvetica,sans-serif;">¿Necesitas coordinar la entrega? <a href="${FRONT_URL}/#contacto" style="color:#1FA2C7;font-weight:bold;">Contáctanos</a>.</p>` : ''}
   <p style="margin:0 0 22px;font-size:12px;line-height:1.6;color:#9B93A5;font-family:Arial,Helvetica,sans-serif;">
-    Este correo es la confirmación de tu solicitud — consérvalo como comprobante de tu pedido.
+    Este correo es el comprobante de recepción de tu solicitud — consérvalo como referencia de tu pedido.
   </p>`;
 
   const html = brandTemplate({
-    kicker: esPagoMovil ? 'Confirmación de pago móvil' : 'Confirmación de pedido',
+    kicker: esPagoMovil ? 'Pago móvil reportado' : 'Confirmación de pedido',
     title: '¡Gracias' + (name ? `, ${name}` : '') + '! Tu',
-    titleAccent: esPagoMovil ? 'pago fue registrado' : 'pedido está listo',
+    titleAccent: esPagoMovil ? 'pedido fue recibido' : 'pedido está listo',
     intro: esPagoMovil
       ? 'Registramos tu pago móvil. Aquí tienes los datos del pago y el detalle de todo lo que pediste, con el monto total:'
       : 'Guardamos tu solicitud y la enviamos a nuestro WhatsApp. Aquí tienes el detalle de todo lo que pediste, con el monto total:',
@@ -289,7 +306,7 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0, 
   });
 
   const subject = esPagoMovil
-    ? `Pago Móvil confirmado · ${fmtMoney(total)} · ${orderNumber} · AK Creaciones`
+    ? `Pago Móvil recibido · ${fmtMoney(total)} · ${orderNumber} · AK Creaciones`
     : `Pedido ${orderNumber} · ${fmtMoney(total)} · AK Creaciones`;
 
   if (transporter) {
@@ -386,32 +403,41 @@ async function sendWelcomeEmail({ to, name, role = 'user', loginUrl, temporaryPa
 
   const subject = 'Tu cuenta está lista · AK Creaciones';
 
-  if (transporter) {
+  if (!transporter) {
+    console.error('✗ Bienvenida no enviada: SMTP no está configurado.');
+    return { delivered: false, mode: 'smtp-unconfigured' };
+  }
+
+  const text = [
+    `Hola ${firstName}, tu cuenta de AK Creaciones está lista.`,
+    `Correo: ${to}`,
+    temporaryPassword ? `Contraseña inicial: ${temporaryPassword}` : '',
+    `Inicia sesión aquí: ${url}`,
+    'Nunca compartas tu contraseña con nadie del equipo.',
+  ].filter(Boolean).join('\n\n');
+
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      await transporter.sendMail({ from: MAIL_FROM, to, subject, html });
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        to,
+        replyTo: SMTP_SENDER_EMAIL || undefined,
+        subject,
+        text,
+        html,
+      });
       return { delivered: true, mode: 'smtp' };
     } catch (err) {
-      console.error('✗ Error enviando la bienvenida por SMTP:', err.message);
-      return { delivered: false, mode: 'smtp-error', error: err.message };
+      lastError = err;
+      const permanent = err.code === 'EAUTH' || Number(err.responseCode) >= 500;
+      if (permanent || attempt === 3) break;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
     }
   }
 
-  /* -------- Modo desarrollo: consola + archivo -------- */
-  console.log('\n──────────── 📧 BIENVENIDA (modo desarrollo) ────────────');
-  console.log(`Para: ${to} — ${subject}${temporaryPassword ? ` — contraseña inicial: ${temporaryPassword}` : ''}`);
-  console.log('──────────────────────────────────────────────────────────\n');
-
-  let previewPath;
-  try {
-    const dir = path.join(__dirname, '..', '..', '.mail-out');
-    fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `welcome-${Date.now()}.html`);
-    fs.writeFileSync(file, html);
-    previewPath = file;
-  } catch {
-    /* si no se puede escribir, con la consola basta */
-  }
-  return { delivered: true, mode: 'dev', previewPath };
+  console.error('✗ Error enviando la bienvenida por SMTP:', lastError?.message || 'Error SMTP');
+  return { delivered: false, mode: 'smtp-error', error: lastError?.message };
 }
 
 module.exports = { sendPasswordReset, sendOrderInvoice, sendWelcomeEmail, FRONT_URL };

@@ -403,7 +403,16 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) 
       </div>
 
       {/* ===== Carrito ===== */}
-      <CartPanel open={cartOpen} items={cart} total={cart.reduce((s, i) => s + i.qty * i.price, 0)} onClose={() => setCartOpen(false)} onRemove={removeFromCart} toast={toast} />
+      <CartPanel
+        open={cartOpen}
+        items={cart}
+        total={cart.reduce((s, i) => s + i.qty * i.price, 0)}
+        onClose={() => setCartOpen(false)}
+        onRemove={removeFromCart}
+        onPaid={() => setCart([])}
+        toast={toast}
+        userSession={isStaff ? auth : customer}
+      />
 
       {/* ===== Banner discreto de instalación PWA (solo en la tienda) ===== */}
       <InstallPrompt />

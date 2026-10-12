@@ -139,17 +139,15 @@ const UserController = {
       // Nunca devolver el hash al cliente
       delete newUser.password_hash;
 
-      /* Correo de bienvenida al usuario registrado (fire-and-forget: no hace
-         esperar la respuesta del panel; si el SMTP falla solo se loguea) */
-      sendWelcomeEmail({
+      /* Espera el resultado SMTP para que el envío se complete antes de responder. */
+      const welcome = await sendWelcomeEmail({
         to: newUser.email,
         name: newUser.name,
         role: finalRole,
         temporaryPassword: password ? String(password) : null,
         registeredBy: req.user?.name ? `${req.user.name} (panel de administración)` : 'Panel de administración',
-      })
-        .then((r) => console.log(`📧 Bienvenida a ${newUser.email}: ${r.mode}${r.delivered ? ' ✓' : ' ✗'}`))
-        .catch((e) => console.error('✗ Error en correo de bienvenida:', e.message));
+      });
+      console.log(`📧 Bienvenida a ${newUser.email}: ${welcome.mode}${welcome.delivered ? ' ✓' : ' ✗'}`);
 
       res.status(201).json({ success: true, data: newUser });
     } catch (err) {

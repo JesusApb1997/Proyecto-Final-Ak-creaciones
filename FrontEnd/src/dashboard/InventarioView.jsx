@@ -201,17 +201,6 @@ function MaterialFormModal({ material, onClose, onSaved }) {
               </button>
               <small className="ff-upload-hint">JPG, PNG, WEBP, SVG… · máx. 5 MB</small>
             </div>
-            <select value={IMAGENES_INV.some((i) => form.img?.endsWith(i)) ? IMAGENES_INV.find((i) => form.img?.endsWith(i)) : ''} onChange={set('img')}>
-              <option value="">— galería de materiales —</option>
-              {IMAGENES_INV.map((img) => (
-                <option key={img} value={cdn(img)}>{img.replace('/imagenes_prod_inv/', '').replace('.svg', '').replaceAll('-', ' ')}</option>
-              ))}
-              {!IMAGENES_INV.some((i) => form.img?.endsWith(i)) && form.img && (
-                <option value={form.img}>{form.img} (subida / personalizada)</option>
-              )}
-            </select>
-            <input className="ff-custom-url" value={form.img ?? ''} onChange={set('img')}
-              placeholder="…o pega una URL / ruta de imagen" />
           </div>
 
           {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}

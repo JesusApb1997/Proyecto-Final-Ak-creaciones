@@ -19,11 +19,12 @@ export default function ResetPasswordPage({ onBack }) {
   /* Extrae el token de la URL y lo reescribe para no dejarlo en el historial */
   useEffect(() => {
     try {
-      const search = new URLSearchParams(location.search)
+      const [route, query = ''] = location.hash.split('?')
+      const search = new URLSearchParams(query)
       const t = search.get('token')
       if (t) {
         setToken(t)
-        history.replaceState(null, '', `${location.pathname}${location.search}`) // limpia solo query
+        history.replaceState(null, '', `${location.pathname}${location.search}${route}`)
       } else {
         setError('No se encontró el enlace de recuperación. Usa el botón de abajo para pedir uno nuevo.')
       }

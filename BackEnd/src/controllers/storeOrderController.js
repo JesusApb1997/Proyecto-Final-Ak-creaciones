@@ -23,6 +23,7 @@
 const pool = require('../config/db');
 const { sendOrderInvoice } = require('../services/mailer');
 const PaymentSettings = require('../models/PaymentSettings');
+const StoreOrder = require('../models/StoreOrder');
 
 /* Genera un número de pedido legible: AK-20261004-7392 */
 function generateOrderNumber() {
@@ -92,6 +93,52 @@ async function cargarUsuario(userId) {
 }
 
 const storeOrderController = {
+  async getAll(req, res) {
+    try {
+      const rows = await StoreOrder.getAll();
+      res.json({ success: true, count: rows.length, data: rows });
+    } catch (err) {
+      console.error('✗ Error cargando pedidos de la tienda:', err.message);
+      res.status(500).json({ success: false, message: 'No se pudieron cargar los pedidos.' });
+    }
+  },
+
+  async getReceipt(req, res) {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ success: false, message: 'Pedido inválido.' });
+      }
+      const receipt = await StoreOrder.getReceipt(id);
+      if (!receipt?.receipt_data) {
+        return res.status(404).json({ success: false, message: 'Este pedido no tiene captura adjunta.' });
+      }
+      const safeName = String(receipt.receipt_name || 'comprobante').replace(/[\r\n"\\]/g, '_');
+      res.set('Cache-Control', 'private, no-store');
+      res.set('Content-Type', receipt.receipt_mime || 'application/octet-stream');
+      res.set('Content-Disposition', `inline; filename="${safeName}"`);
+      res.send(receipt.receipt_data);
+    } catch (err) {
+      console.error('✗ Error cargando comprobante:', err.message);
+      res.status(500).json({ success: false, message: 'No se pudo cargar el comprobante.' });
+    }
+  },
+
+  async updateStatus(req, res) {
+    try {
+      const { status } = req.body || {};
+      if (!['verificado', 'rechazado'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Estado de pago inválido.' });
+      }
+      const order = await StoreOrder.updateStatus(Number(req.params.id), status);
+      if (!order) return res.status(404).json({ success: false, message: 'Pedido no encontrado.' });
+      res.json({ success: true, data: order });
+    } catch (err) {
+      console.error('✗ Error actualizando estado de Pago Móvil:', err.message);
+      res.status(500).json({ success: false, message: 'No se pudo actualizar el estado.' });
+    }
+  },
+
   async create(req, res) {
     try {
       const { itemsFinales, total, error } = await recalcularPedido(req.body?.items);
@@ -134,7 +181,15 @@ const storeOrderController = {
      al correo la confirmación con el MONTO TOTAL del carrito. */
   async createMobilePayment(req, res) {
     try {
-      const { itemsFinales, total, error } = await recalcularPedido(req.body?.items);
+      let rawItems = req.body?.items;
+      if (typeof rawItems === 'string') {
+        try {
+          rawItems = JSON.parse(rawItems);
+        } catch {
+          return res.status(400).json({ success: false, message: 'El carrito no tiene un formato válido.' });
+        }
+      }
+      const { itemsFinales, total, error } = await recalcularPedido(rawItems);
       if (error) return res.status(400).json({ success: false, message: error });
 
       const user = await cargarUsuario(req.user.id);
@@ -144,33 +199,73 @@ const storeOrderController = {
 
       /* Datos de pago que configuró el admin (van impresos en el correo) */
       const datosPago = await PaymentSettings.get();
-
       const orderNumber = generateOrderNumber();
+      const payerPhone = String(req.body?.payer_phone || '').trim().slice(0, 40);
+      const payerBank = String(req.body?.payer_bank || '').trim().slice(0, 120);
+      const referenceNumber = String(req.body?.reference_number || '').trim().slice(0, 100);
+      const amountInput = String(req.body?.reported_amount || '').trim();
+      const reportedAmount = amountInput ? Number(amountInput) : null;
+      if (amountInput && (!Number.isFinite(reportedAmount) || reportedAmount <= 0)) {
+        return res.status(400).json({ success: false, message: 'El monto reportado no es válido.' });
+      }
+      const completeDetails = Boolean(payerPhone && payerBank && referenceNumber && reportedAmount !== null);
+      if (!req.file && !completeDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'Adjunta la captura del pago o completa teléfono, banco, monto y referencia.',
+        });
+      }
+      const payment = {
+        method: 'Pago Móvil',
+        bank_name: datosPago.bank_name,
+        phone: datosPago.phone,
+        cedula: datosPago.cedula,
+        holder_name: datosPago.holder_name,
+        payer_phone: payerPhone,
+        payer_bank: payerBank,
+        reported_amount: reportedAmount,
+        reference_number: referenceNumber,
+      };
+      const order = await StoreOrder.create({
+        order_number: orderNumber,
+        user_id: user.id,
+        customer_name: [user.name, user.last_name].filter(Boolean).join(' '),
+        customer_email: user.email,
+        payment_method: 'Pago Móvil',
+        status: 'reportado',
+        items: itemsFinales,
+        total,
+        payment_details: payment,
+        payer_phone: payerPhone,
+        payer_bank: payerBank,
+        reported_amount: reportedAmount,
+        reference_number: referenceNumber,
+        receipt_name: req.file?.originalname,
+        receipt_mime: req.file?.mimetype,
+        receipt_data: req.file?.buffer,
+      });
+
       const mail = await sendOrderInvoice({
         to: user.email,
         name: user.name,
         orderNumber,
         items: itemsFinales,
         total,
-        payment: {
-          method: 'Pago Móvil',
-          bank_name: datosPago.bank_name,
-          phone: datosPago.phone,
-          cedula: datosPago.cedula,
-          holder_name: datosPago.holder_name,
-        },
+        payment,
       });
 
       console.log(
-        `💳 Pago Móvil ${orderNumber} de ${user.email} — total $${total.toFixed(2)} — correo: ${mail.mode}`
+        `💳 Pago Móvil ${orderNumber} de ${user.email} — total $${total.toFixed(2)} — pedido #${order.id} — correo: ${mail.mode}`
       );
 
       res.status(201).json({
         success: true,
-        message: `¡Pago registrado, ${user.name}! Enviamos la confirmación a ${user.email}`,
+        message: `¡Gracias, ${user.name}! Recibimos tu reporte de pago y enviamos el comprobante a ${user.email}`,
+        id: order.id,
         orderNumber,
         total,
         email: user.email,
+        status: order.status,
         invoice: { delivered: mail.delivered, mode: mail.mode },
       });
     } catch (err) {

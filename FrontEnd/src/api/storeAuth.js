@@ -245,13 +245,12 @@ export const storeAuthApi = {
    Requiere sesión de cliente: el backend verifica el token, recalcula los
    precios desde la BD y envía al correo del usuario la factura estilizada. */
 export const storeOrdersApi = {
-  create: async (items) => {
-    const token = storeSession.get()?.token
+  create: async (items, activeToken = storeSession.get()?.token) => {
     const { data } = await api.post(
       '/store-orders',
       { items },
       {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
         customerAuth: true, // expiración de sesión de cliente: la maneja el carrito con un toast
       }
     )
@@ -260,13 +259,22 @@ export const storeOrdersApi = {
 
   /* El cliente ya realizó el pago móvil: el backend registra el pedido y le
      envía al correo la confirmación con el MONTO TOTAL de su carrito. */
-  payMobile: async (items) => {
-    const token = storeSession.get()?.token
+  payMobile: async (items, activeToken = storeSession.get()?.token, report = {}) => {
+    const body = new FormData()
+    body.append('items', JSON.stringify(items))
+    body.append('payer_phone', report.payerPhone || '')
+    body.append('payer_bank', report.payerBank || '')
+    body.append('reported_amount', report.reportedAmount || '')
+    body.append('reference_number', report.referenceNumber || '')
+    if (report.receipt) body.append('receipt', report.receipt)
     const { data } = await api.post(
       '/store-orders/pago-movil',
-      { items },
+      body,
       {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: {
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
+          'Content-Type': 'multipart/form-data',
+        },
         customerAuth: true,
       }
     )

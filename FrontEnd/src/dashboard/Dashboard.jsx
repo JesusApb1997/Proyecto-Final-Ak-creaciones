@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { session, authApi } from '../api/auth.js'
-import { productsApi, usersApi, uploadsApi, deliveryApi } from '../api/client.js'
+import { productsApi, usersApi, uploadsApi, deliveryApi, storeOrdersAdminApi } from '../api/client.js'
 import UserNavbar from '../navbar/UserNavbar.jsx'
 import InventarioView from './InventarioView.jsx'
 import DeliveryView from './DeliveryView.jsx'
+import OrdersView from './OrdersView.jsx'
 import PaymentSettingsView from './PaymentSettingsView.jsx'
 import { money, PRODUCT_CATEGORIES, PRODUCT_IMAGES, cdn } from '../config.js'
 
@@ -22,6 +23,7 @@ const NAV = [
   { icon: 'bi-speedometer2', label: 'Resumen', href: '#/dashboard', key: 'resumen' },
   { icon: 'bi-bag', label: 'Productos', href: '#/dashboard/productos', key: 'productos' },
   { icon: 'bi-truck', label: 'Delivery', href: '#/dashboard/delivery', key: 'delivery' },
+  { icon: 'bi-bag-check', label: 'Pedidos', href: '#/dashboard/pedidos', key: 'pedidos', adminOnly: true },
   { icon: 'bi-credit-card-2-front', label: 'Datos de pago', href: '#/dashboard/datos-pago', key: 'datos-pago', adminOnly: true },
   { icon: 'bi-boxes', label: 'Inventario', href: '#/dashboard/inventario', key: 'inventario', adminOnly: true },
   { icon: 'bi-people', label: 'Usuarios', href: '#/dashboard/usuarios', key: 'usuarios', adminOnly: true },
@@ -31,6 +33,7 @@ const sectionFromHash = () => {
   const h = location.hash || '#/dashboard'
   if (h.includes('productos')) return 'productos'
   if (h.includes('delivery')) return 'delivery'
+  if (h.includes('pedidos')) return 'pedidos'
   if (h.includes('datos-pago')) return 'datos-pago'
   if (h.includes('inventario')) return 'inventario'
   if (h.includes('usuarios')) return 'usuarios'
@@ -954,6 +957,7 @@ export default function Dashboard({ onLogout, onGoHome }) {
 
           {section === 'productos' && <ProductsView showToast={showToast} readOnly={!isAdmin} />}
           {section === 'delivery' && <DeliveryView showToast={showToast} isAdmin={isAdmin} />}
+          {section === 'pedidos' && <OrdersView />}
           {section === 'datos-pago' &&
             (isAdmin ? (
               <PaymentSettingsView showToast={showToast} />

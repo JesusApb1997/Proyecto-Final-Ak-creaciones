@@ -1,7 +1,9 @@
 /**
  * Controlador de Pedidos de Delivery (Entrega a domicilio)
  */
+const crypto = require('crypto');
 const Delivery = require('../models/Delivery');
+const { sendDeliveryUpdate } = require('../services/whatsapp');
 
 const deliveryController = {
   // GET /api/delivery
@@ -40,31 +42,72 @@ const deliveryController = {
   // POST /api/delivery
   async create(req, res) {
     try {
-      const { name, last_name, phone, address, localidad, items, total, notes, user_id } = req.body;
+      const { name, last_name, phone, address, localidad, maps_url, items, total, notes } = req.body;
 
-      if (!name || !phone || !address) {
+      if (!name || !last_name || !phone || (!address && !maps_url)) {
         return res.status(400).json({
           success: false,
-          message: 'Los campos "name", "phone" y "address" son obligatorios',
+          message: 'Nombre, apellido, teléfono y dirección escrita o enlace de Maps son obligatorios.',
         });
       }
+
+      if (maps_url && !/^https?:\/\/(maps\.app\.goo\.gl|www\.google\.com\/maps|maps\.google\.com)\//i.test(String(maps_url).trim())) {
+        return res.status(400).json({ success: false, message: 'El enlace debe ser una URL válida de Google Maps.' });
+      }
+
+      const orderNumber = `DLV-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const invoiceNumber = `FAC-${orderNumber}`;
 
       const newDelivery = await Delivery.create({
         name: String(name).trim(),
         last_name: last_name ? String(last_name).trim() : null,
         phone: String(phone).trim(),
-        address: String(address).trim(),
+        address: address ? String(address).trim() : 'Ubicación compartida por Google Maps',
         localidad: localidad ? String(localidad).trim() : null,
+        maps_url: maps_url ? String(maps_url).trim() : null,
         items: items || null,
         total: total || 0,
         status: 'pendiente',
         notes: notes ? String(notes).trim() : null,
-        user_id: user_id || req.user?.id || null,
+        user_id: req.user.id,
+        order_number: orderNumber,
+        invoice_number: invoiceNumber,
       });
 
       res.status(201).json({ success: true, data: newDelivery });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  // PATCH /api/delivery/:id/dispatch — asigna conductor y avisa al cliente
+  async dispatch(req, res) {
+    try {
+      const { driver_name, driver_phone, location_confirmed } = req.body || {};
+      if (!String(driver_name || '').trim() || !String(driver_phone || '').trim() || location_confirmed !== true) {
+        return res.status(400).json({ success: false, message: 'Completa conductor, teléfono y confirma la ubicación antes de despachar.' });
+      }
+      const delivery = await Delivery.assignDriver(req.params.id, {
+        driver_name: String(driver_name).trim(),
+        driver_phone: String(driver_phone).trim(),
+        location_confirmed: true,
+      });
+      if (!delivery) return res.status(404).json({ success: false, message: 'Pedido de delivery no encontrado.' });
+
+      const notification = await sendDeliveryUpdate(delivery);
+      const updated = await Delivery.setWhatsAppStatus(
+        delivery.id,
+        notification.sent ? 'enviado' : 'manual',
+        notification.sent ? new Date() : null
+      );
+      res.json({
+        success: true,
+        data: updated,
+        whatsapp: { sent: notification.sent, mode: notification.mode, url: notification.url || null },
+      });
+    } catch (err) {
+      console.error('✗ Error despachando el delivery:', err.message);
+      res.status(500).json({ success: false, message: 'No se pudo asignar el conductor.' });
     }
   },
 

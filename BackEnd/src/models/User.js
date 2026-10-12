@@ -48,7 +48,7 @@ const User = {
   async getByLogin(identifier) {
     const id = String(identifier || '').trim().toLowerCase();
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 OR username = $1 LIMIT 1',
+      'SELECT * FROM users WHERE lower(trim(email)) = $1 OR lower(trim(username)) = $1 LIMIT 1',
       [id]
     );
     return result.rows[0];

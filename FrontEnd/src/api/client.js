@@ -72,7 +72,15 @@ export const deliveryApi = {
     }),
   update: (id, body) => api.put(`/delivery/${id}`, body),
   updateStatus: (id, status) => api.patch(`/delivery/${id}/status`, { status }),
+  dispatch: (id, body) => api.patch(`/delivery/${id}/dispatch`, body),
   remove: (id) => api.delete(`/delivery/${id}`),
+}
+
+/* ---------- Pedidos reportados desde Pago Móvil (dashboard staff) ---------- */
+export const storeOrdersAdminApi = {
+  getAll: () => api.get('/store-orders'),
+  getReceipt: (id) => api.get(`/store-orders/${id}/receipt`, { responseType: 'blob' }),
+  updateStatus: (id, status) => api.patch(`/store-orders/${id}/status`, { status }),
 }
 
 /* ---------- Datos de pago (/api/payment-settings) ----------

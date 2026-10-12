@@ -23,6 +23,10 @@ export default function DeliveryView({ showToast, isAdmin }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
+  const [dispatchForm, setDispatchForm] = useState({ driver_name: '', driver_phone: '', location_confirmed: false })
+  const [dispatching, setDispatching] = useState(false)
+  const [dispatchError, setDispatchError] = useState('')
+  const [whatsappResult, setWhatsappResult] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -49,6 +53,37 @@ export default function DeliveryView({ showToast, isAdmin }) {
       setSelected(null)
     } catch (err) {
       showToast('✗ ' + (err?.message || 'No se pudo actualizar el estado'))
+    }
+  }
+
+  const openDelivery = (delivery) => {
+    setSelected(delivery)
+    setDispatchForm({
+      driver_name: delivery.driver_name || '',
+      driver_phone: delivery.driver_phone || '',
+      location_confirmed: Boolean(delivery.location_confirmed),
+    })
+    setDispatchError('')
+    setWhatsappResult(null)
+  }
+
+  const dispatchDelivery = async (event) => {
+    event.preventDefault()
+    if (!selected || dispatching) return
+    setDispatching(true)
+    setDispatchError('')
+    setWhatsappResult(null)
+    try {
+      const { data } = await deliveryApi.dispatch(selected.id, dispatchForm)
+      setSelected(data.data)
+      setDeliveries((current) => current.map((item) => item.id === selected.id ? data.data : item))
+      setWhatsappResult(data.whatsapp)
+      if (data.whatsapp?.sent) showToast('✓ Delivery asignado y aviso enviado por WhatsApp')
+      else showToast('✓ Delivery guardado. Abre el enlace para enviar el aviso por WhatsApp')
+    } catch (err) {
+      setDispatchError(err?.message || 'No se pudo asignar el conductor')
+    } finally {
+      setDispatching(false)
     }
   }
 
@@ -99,7 +134,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
           <table className="dash-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th>Pedido / factura</th>
                 <th>Cliente</th>
                 <th>Teléfono</th>
                 <th>Dirección</th>
@@ -119,7 +154,10 @@ export default function DeliveryView({ showToast, isAdmin }) {
               ) : (
                 deliveries.map((d) => (
                   <tr key={d.id}>
-                    <td><strong>#{d.id}</strong></td>
+                    <td>
+                      <strong>{d.order_number || `#${d.id}`}</strong>
+                      {d.invoice_number && <small style={{ display: 'block', color: 'var(--muted)' }}>{d.invoice_number}</small>}
+                    </td>
                     <td>
                       <div>
                         <strong>{d.name} {d.last_name || ''}</strong>
@@ -131,6 +169,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
                       <div style={{ maxWidth: '250px' }}>
                         <small>{d.address || '-'}</small>
                         {d.localidad && <small style={{ display: 'block', color: 'var(--muted)' }}>{d.localidad}</small>}
+                        {d.maps_url && <a href={d.maps_url} target="_blank" rel="noreferrer" style={{ display: 'block', color: 'var(--turq)' }}>Abrir ubicación</a>}
                       </div>
                     </td>
                     <td><strong>${Number(d.total || 0).toFixed(2)}</strong></td>
@@ -141,7 +180,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
                     </td>
                     <td><small>{formatDate(d.created_at)}</small></td>
                     <td className="dash-actions-cell">
-                      <button className="btn-icon" title="Ver detalles" onClick={() => setSelected(d)}>
+                      <button className="btn-icon" title="Ver detalles" onClick={() => openDelivery(d)}>
                         <i className="bi bi-eye"></i>
                       </button>
                     </td>
@@ -160,7 +199,8 @@ export default function DeliveryView({ showToast, isAdmin }) {
               <i className="bi bi-x-lg"></i>
             </button>
             <p className="kicker">Pedido de Delivery</p>
-            <h3>Pedido #{selected.id}</h3>
+            <h3>Pedido {selected.order_number || `#${selected.id}`}</h3>
+            <p className="admin-note">Factura: <strong>{selected.invoice_number || '—'}</strong></p>
 
             <div className="ff-row" style={{ marginBottom: '1rem' }}>
               <div className="ff">
@@ -192,6 +232,10 @@ export default function DeliveryView({ showToast, isAdmin }) {
               </div>
             </div>
 
+            {selected.maps_url && (
+              <p className="pm-note"><a href={selected.maps_url} target="_blank" rel="noreferrer">Abrir ubicación de Google Maps</a></p>
+            )}
+
             <div className="ff" style={{ marginBottom: '1rem' }}>
               <label>Estado</label>
               <select
@@ -214,6 +258,59 @@ export default function DeliveryView({ showToast, isAdmin }) {
                   {selected.notes}
                 </div>
               </div>
+            )}
+
+            <div className="ff-row" style={{ marginBottom: '1rem' }}>
+              <div className="ff">
+                <label>Conductor asignado</label>
+                <div style={{ padding: '0.5rem', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  {selected.driver_name || 'Sin asignar'}
+                </div>
+              </div>
+              <div className="ff">
+                <label>Teléfono del conductor</label>
+                <div style={{ padding: '0.5rem', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  {selected.driver_phone || '—'}
+                </div>
+              </div>
+              <div className="ff">
+                <label>Ubicación del cliente</label>
+                <div style={{ padding: '0.5rem', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  {selected.location_confirmed ? 'Confirmada' : 'Pendiente de confirmar'}
+                </div>
+              </div>
+              <div className="ff">
+                <label>Notificación WhatsApp</label>
+                <div style={{ padding: '0.5rem', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  {selected.whatsapp_status === 'enviado' ? 'Enviada automáticamente' : selected.whatsapp_status === 'manual' ? 'Pendiente de envío manual' : 'Pendiente'}
+                </div>
+              </div>
+            </div>
+
+            {isAdmin && (
+              <form className="product-form" onSubmit={dispatchDelivery}>
+                <p className="kicker">Asignación y despacho</p>
+                <div className="ff-row">
+                  <div className="ff">
+                    <label>Nombre del conductor *</label>
+                    <input required value={dispatchForm.driver_name} onChange={(e) => setDispatchForm({ ...dispatchForm, driver_name: e.target.value })} disabled={dispatching} />
+                  </div>
+                  <div className="ff">
+                    <label>Teléfono del conductor *</label>
+                    <input required type="tel" value={dispatchForm.driver_phone} onChange={(e) => setDispatchForm({ ...dispatchForm, driver_phone: e.target.value })} disabled={dispatching} />
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}>
+                  <input type="checkbox" checked={dispatchForm.location_confirmed} onChange={(e) => setDispatchForm({ ...dispatchForm, location_confirmed: e.target.checked })} disabled={dispatching} />
+                  Confirmé la ubicación con el cliente
+                </label>
+                {dispatchError && <p className="login-error" role="alert">{dispatchError}</p>}
+                {whatsappResult?.sent && <p className="pm-status"><i className="bi bi-check-circle"></i> Aviso enviado automáticamente por WhatsApp.</p>}
+                {whatsappResult?.url && <p className="pm-status">Cloud API no está disponible. <a href={whatsappResult.url} target="_blank" rel="noreferrer">Abrir mensaje en WhatsApp</a></p>}
+                <button type="submit" className="btn btn-grad btn-block" disabled={dispatching}>
+                  {dispatching ? 'Guardando y notificando…' : 'Verificar, asignar y avisar al cliente'}
+                </button>
+              </form>
             )}
 
             {parseItems(selected.items).length > 0 && (

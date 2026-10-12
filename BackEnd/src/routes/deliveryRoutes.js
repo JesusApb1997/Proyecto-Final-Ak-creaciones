@@ -27,6 +27,7 @@ router.get('/', staffOnly, deliveryController.getAll);
 router.get('/:id', staffOnly, deliveryController.getById);
 router.put('/:id', staffOnly, deliveryController.update);
 router.patch('/:id/status', staffOnly, deliveryController.updateStatus);
+router.patch('/:id/dispatch', [verifyToken, requireRole('admin')], deliveryController.dispatch);
 
 // Solo admin puede eliminar
 router.delete('/:id', [verifyToken, requireRole('admin')], deliveryController.remove);
