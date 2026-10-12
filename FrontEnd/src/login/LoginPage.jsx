@@ -68,7 +68,7 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
      'join'  -> crear cuenta (Google · Apple · correo)
      'staff' -> acceso del personal al panel (flujo original de esta vista) */
   const [view, setView] = useState('join')
-  const [joinForm, setJoinForm] = useState({ name: '', email: '', password: '' })
+  const [joinForm, setJoinForm] = useState({ name: '', username: '', email: '', password: '' })
   const [joinError, setJoinError] = useState('')
   const [joinBusy, setJoinBusy] = useState(false)
   const [social, setSocial] = useState('') // 'google' | 'apple' | ''
@@ -185,6 +185,7 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
       const email = joinForm.email.trim()
       const data = await storeAuthApi.register({
         name: joinForm.name.trim(),
+        username: joinForm.username.trim(),
         email,
         password: joinForm.password,
       })
@@ -286,7 +287,7 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
 
             {hasSocial && <div className="store-divider">o regístrate con tu correo</div>}
 
-            {/* ===== Formulario básico: nombre · correo · contraseña ===== */}
+            {/* ===== Formulario básico: nombre · usuario · correo · contraseña ===== */}
             <form className="store-form" onSubmit={submitJoin}>
               <label className="store-field">
                 <span>Nombre</span>
@@ -299,6 +300,25 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
                     required
                     value={joinForm.name}
                     onChange={(e) => setJoinForm({ ...joinForm, name: e.target.value })}
+                  />
+                </div>
+              </label>
+
+              <label className="store-field">
+                <span>Nombre de usuario (único, sin espacios)</span>
+                <div className="store-input">
+                  <span className="store-at">@</span>
+                  <input
+                    type="text"
+                    placeholder="p.ej. nellys.rojo"
+                    autoComplete="username"
+                    minLength={3}
+                    maxLength={24}
+                    pattern="[a-zA-Z0-9._-]{3,24}"
+                    title="3 a 24 caracteres: letras, números, punto, guion o guion bajo (sin espacios ni tildes)"
+                    required
+                    value={joinForm.username}
+                    onChange={(e) => setJoinForm({ ...joinForm, username: e.target.value })}
                   />
                 </div>
               </label>

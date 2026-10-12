@@ -51,7 +51,7 @@ async function verifyPassword(password, user) {
  */
 function normRole(role) {
   const r = String(role ?? '').trim().toLowerCase();
-  if (['admin', 'administracion', 'administración', 'administrador'].includes(r)) return 'admin';
+  if (['admin', 'administracion', 'administración', 'administrador', 'administradora'].includes(r)) return 'admin';
   // Los clientes del login público quedan con rol "cliente" (sin panel);
   // los registros nuevos usan el rol "user" — nunca sube al panel.
   if (r === 'user') return 'user';
@@ -67,13 +67,13 @@ const authController = {
     try {
       const { rows } = await pool.query(
         `SELECT id, name, last_name, email,
-                CASE WHEN lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador')
+                CASE WHEN lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador', 'administradora')
                      THEN 'admin' ELSE 'empleado' END AS role
          FROM users
          WHERE password_hash IS NOT NULL
-           AND lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador',
+           AND lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador', 'administradora',
                                      'empleado', 'empleada', 'employee')
-         ORDER BY (CASE WHEN lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador')
+         ORDER BY (CASE WHEN lower(trim(role)) IN ('admin', 'administracion', 'administración', 'administrador', 'administradora')
                         THEN 0 ELSE 1 END), id ASC`
       );
       res.json({ success: true, count: rows.length, data: rows });
@@ -168,7 +168,11 @@ const authController = {
       if (!rows[0]) {
         return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
       }
-      res.json({ success: true, data: rows[0] });
+      const profileRole = normRole(rows[0].role);
+      if (profileRole !== req.user.role) {
+        return res.status(403).json({ success: false, message: 'El rol de la cuenta cambió. Inicia sesión de nuevo.' });
+      }
+      res.json({ success: true, data: { ...rows[0], role: req.user.role } });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
     }

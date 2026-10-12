@@ -96,13 +96,17 @@ export default function Header({
   theme,
   onToggleTheme,
   isStaff,
+  staffUser,
   customer,
   onLogoutCustomer,
+  onLogoutStaff,
   onLoginClick,
   cartCount,
   onOpenCart,
 }) {
   const [scrolled, setScrolled] = useState(false)
+  const activeAccount = isStaff && staffUser ? { user: staffUser } : customer
+  const logoutAccount = isStaff ? onLogoutStaff : onLogoutCustomer
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -160,8 +164,8 @@ export default function Header({
           )}
 
           {/* Login opcional del cliente/comprador: correo, Google o Apple */}
-          {customer ? (
-            <CustomerMenu customer={customer} onLogout={onLogoutCustomer} isStaff={isStaff} />
+          {activeAccount ? (
+            <CustomerMenu customer={activeAccount} onLogout={logoutAccount} isStaff={isStaff} />
           ) : (
             <button
               type="button"

@@ -65,7 +65,7 @@ const readLS = (key, fallback) => {
   }
 }
 
-function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
+function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) {
   /* ---------- Tema ---------- */
   const [theme, setTheme] = useState(() => localStorage.getItem('ak-theme') || 'light')
   useEffect(() => {
@@ -249,7 +249,9 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         isStaff={isStaff}
+        staffUser={auth?.user}
         customer={customer}
+        onLogoutStaff={onLogoutStaff}
         onLogoutCustomer={() => {
           storeSession.clear()
           storeRemember.clear()
@@ -485,21 +487,26 @@ export default function App() {
     }
 
     authApi.me()
-      .then(({ data }) => {
+      .then((response) => {
         if (!active) return
-        if (!isStaffRole(data?.data)) {
+        const profile = response?.data
+        if (!isStaffRole(profile)) {
           session.clear()
           setAuth(null)
           setAuthStatus('denied')
           if (route.startsWith('#/dashboard')) location.replace('#/login')
           return
         }
-        setAuth({ token: savedSession.token, user: data.data })
+        storeSession.clear()
+        storeRemember.clear()
+        setStoreAuth(null)
+        setAuth({ token: savedSession.token, user: profile })
         setAuthStatus('verified')
         if (route.startsWith('#/login')) location.replace('#/dashboard')
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return
+        if ([401, 403].includes(err?.response?.status)) session.clear()
         setAuth(null)
         setAuthStatus('denied')
         if (route.startsWith('#/dashboard')) location.replace('#/login')
@@ -594,17 +601,21 @@ export default function App() {
     )
   }
 
-  /* Login público de clientes: email · Google · Apple.
-     Si la cuenta es del equipo (admin/trabajadora), el backend devuelve rol
-     'admin' en este mismo token: promovemos esa sesión a sesión de personal
-     para que entre al panel en lugar de quedarse en la tienda. */
+  /* Acceso público: el login por correo puede autenticar personal o clientes.
+     Solo se promueve una cuenta de personal si su JWT queda verificado. */
   if (route.startsWith('#/acceder')) {
     return (
       <StoreLoginPage
         onSuccess={(data) => {
-          session.clear()
-          setAuth(null)
-          setAuthStatus('denied')
+          if (data?.token) {
+            session.save({ token: data.token, user: data.user })
+            setAuth(null)
+            setAuthStatus('checking')
+          } else {
+            session.clear()
+            setAuth(null)
+            setAuthStatus('denied')
+          }
           setStoreAuth(storeSession.get())
           location.hash = '#/'
         }}
@@ -629,5 +640,17 @@ export default function App() {
     )
   }
 
-  return <Store auth={auth} storeAuth={storeAuth} onStoreAuthChange={setStoreAuth} />
+  return (
+    <Store
+      auth={auth}
+      storeAuth={storeAuth}
+      onStoreAuthChange={setStoreAuth}
+      onLogoutStaff={() => {
+        session.clear()
+        setAuth(null)
+        setAuthStatus('denied')
+        location.hash = '#/login'
+      }}
+    />
+  )
 }

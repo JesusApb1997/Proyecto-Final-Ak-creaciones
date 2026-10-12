@@ -36,6 +36,13 @@ const STAFF_ROLES = ['admin', 'empleado'];
    'cliente': un login público NUNCA puede otorgar un rol con privilegios. */
 const COMMON_ROLES = ['user', 'cliente'];
 
+function normalizePublicLoginRole(role) {
+  const normalized = String(role ?? '').trim().toLowerCase();
+  if (['admin', 'administracion', 'administración', 'administrador', 'administradora'].includes(normalized)) return 'admin';
+  if (['empleado', 'empleada', 'employee', 'trabajador', 'trabajadora'].includes(normalized)) return 'empleado';
+  return COMMON_ROLES.includes(normalized) ? normalized : 'cliente';
+}
+
 /* -------------------------------------------------------------------------
  * JWKS remotos de Google y Apple (se descargan 1 vez y se cachean; jose los
  * refresca automáticamente si el kid no está). Verifican firma, expiración,
@@ -206,10 +213,10 @@ const publicAuthController = {
     try {
       const { name, last_name, email, password, username } = req.body;
 
-      if (!name || !email || !password) {
+      if (!name || !username || !email || !password) {
         return res.status(400).json({
           success: false,
-          message: 'Los campos "name", "email" y "password" son obligatorios',
+          message: 'Los campos "name", "username", "email" y "password" son obligatorios',
         });
       }
       if (String(password).length < 4) {
@@ -220,13 +227,9 @@ const publicAuthController = {
         return res.status(400).json({ success: false, message: 'Formato de correo inválido' });
       }
 
-      /* Nombre de usuario único: es opcional — si no llega, findOrCreateCustomer
-         propone uno derivado del correo (igual que con Google/Apple). */
-      const finalUsername = String(username || '').trim().toLowerCase();
-      if (finalUsername) {
-        const usernameError = usernameValidationError(finalUsername);
-        if (usernameError) return res.status(400).json({ success: false, message: usernameError });
-      }
+      const finalUsername = String(username).trim().toLowerCase();
+      const usernameError = usernameValidationError(finalUsername);
+      if (usernameError) return res.status(400).json({ success: false, message: usernameError });
 
       const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [em]);
       if (rows[0]) {
@@ -307,8 +310,7 @@ const publicAuthController = {
       // Cuentas de personal con panel: se emite el token con SU rol real y
       // vigencia corta (8 h). Los usuarios comunes reciben token largo (30 días)
       // con su rol ('user' o 'cliente'); cualquier otro rol degrada a 'cliente'.
-      const rawRole = String(user.role ?? '').trim().toLowerCase();
-      const role = STAFF_ROLES.includes(rawRole) ? rawRole : COMMON_ROLES.includes(rawRole) ? rawRole : 'cliente';
+      const role = normalizePublicLoginRole(user.role);
       const token = jwt.sign(
         { id: user.id, email: user.email, role, name: user.name, last_name: user.last_name },
         JWT_SECRET,
