@@ -197,16 +197,6 @@ function ProductFormModal({ product, onClose, onSaved }) {
               </button>
               <small className="ff-upload-hint">JPG, PNG, WEBP, GIF o AVIF · máx. 5 MB</small>
             </div>
-            <select value={PRODUCT_IMAGES.some((i) => form.img?.endsWith(i)) ? PRODUCT_IMAGES.find((i) => form.img?.endsWith(i)) : ''} onChange={set('img')}>
-              <option value="">— galería —</option>
-              {PRODUCT_IMAGES.map((img) => (
-                <option key={img} value={cdn(img)}>{img.replace('/products/', '').replace('.jpeg', '').replaceAll('-', ' ')}</option>
-              ))}
-              {!PRODUCT_IMAGES.some((i) => form.img?.endsWith(i)) && form.img && (
-                <option value={form.img}>{form.img} (subida / personalizada)</option>
-              )}
-            </select>
-            <input className="ff-custom-url" value={form.img ?? ''} onChange={set('img')} placeholder="…o pega una URL / ruta de imagen" />
           </div>
 
           {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
