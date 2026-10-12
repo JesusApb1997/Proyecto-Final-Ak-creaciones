@@ -5,7 +5,7 @@
    en localStorage quedan: usuario, contraseña (cifrada) y token de sesión.
    ========================================================================== */
 import { useEffect, useState } from 'react'
-import { storeAuthApi, storeSession, storeRemember } from '../api/storeAuth.js'
+import { storeAuthApi, storeRemember } from '../api/storeAuth.js'
 import { cdn } from '../config.js'
 import { GoogleLogo, AppleLogo, googleCredential, appleSignInToken, isAppleCancel, socialConfig } from './socialAuth.jsx'
 import './storeLogin.css'
@@ -28,49 +28,11 @@ export default function StoreLoginPage({ onSuccess }) {
   const [social, setSocial] = useState('') // 'google' | 'apple' | ''
   const [showPass, setShowPass] = useState(false)
 
-  /* Credenciales recordadas: acceso con un toque en la próxima visita */
-  const [remembered, setRemembered] = useState(null)
-  useEffect(() => {
-    storeRemember.load().then(setRemembered)
-  }, [])
-
   const finish = (data, { socialLogin = false, email, password } = {}) => {
     // Guarda usuario + contraseña cifrada + token para la próxima visita
     if (socialLogin) storeRemember.saveSocial(data.user, data.token)
     else storeRemember.save(email ?? form.email?.trim(), password ?? form.password, data.user, data.token)
     onSuccess?.(data)
-  }
-
-  /* ================= Acceso rápido (usuario recordado) ================= */
-  const quickLogin = async () => {
-    if (!remembered) return
-    setError('')
-    setInfo('')
-    setLoading(true)
-    try {
-      if (remembered.password) {
-        /* Cuenta por correo: revalida email+password contra la BD y refresca el token */
-        const data = await storeAuthApi.login(remembered.email, remembered.password)
-        finish(data, { email: remembered.email, password: remembered.password })
-      } else {
-        /* Cuenta social: valida el token guardado contra la API */
-        if (!storeSession.get()?.token && remembered.token) {
-          storeSession.save({ token: remembered.token, user: remembered.user })
-        }
-        const me = await storeAuthApi.me()
-        const user = me?.data ?? remembered.user
-        const token = storeSession.get()?.token ?? remembered.token
-        storeSession.save({ token, user })
-        finish({ token, user }, { socialLogin: true })
-      }
-    } catch (err) {
-      storeRemember.clear()
-      setRemembered(null)
-      setError('Tu sesión guardada expiró. Vuelve a iniciar sesión.')
-      console.warn('[storeAuth]', err?.message)
-    } finally {
-      setLoading(false)
-    }
   }
 
   /* ================= Email: login / registro ================= */
@@ -177,18 +139,6 @@ export default function StoreLoginPage({ onSuccess }) {
               ? `Crea tu cuenta con usuario y contraseña propios, o entra con ${socialNames.join(' o ')}`
               : 'Crea tu cuenta con tu correo y una contraseña propia'}
         </p>
-
-        {/* ===== Acceso rápido con el usuario recordado ===== */}
-        {remembered && (
-          <button type="button" className="store-quick" onClick={quickLogin} disabled={loading || !!social}>
-            <span className="bolt"><i className="bi bi-lightning-charge-fill"></i></span>
-            <span className="who">
-              Continuar como {remembered.user?.name || remembered.email}
-              <small>{remembered.email}</small>
-            </span>
-            {loading ? <span className="store-spinner"></span> : <i className="bi bi-arrow-right"></i>}
-          </button>
-        )}
 
         {/* ===== Botones sociales =====
             Solo se dibuja el proveedor que tenga credenciales configuradas:

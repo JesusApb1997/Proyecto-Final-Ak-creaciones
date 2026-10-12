@@ -15,7 +15,7 @@ import InstallPrompt from './components/InstallPrompt.jsx'
 import './components/installPrompt.css'
 
 import { productsApi } from './api/client.js'
-import { session } from './api/auth.js'
+import { authApi, session } from './api/auth.js'
 import { storeAuthApi, storeSession, storeRemember } from './api/storeAuth.js'
 import { money, SIZES_BY_CAT, WHATSAPP_NUMBER, WHATSAPP_DISPLAY, WHATSAPP_QR_URL, INSTAGRAM_URL, cdn } from './config.js'
 import MapUbicacion from './Map_ubi/MapUbicacion.jsx'
@@ -79,8 +79,8 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [cart, setCart] = useState(() => readLS('ak-cart', []))
-  const isStaff = isStaffRole(auth?.user) || isStaffRole(customer?.user)
-  const isAdmin = auth?.user?.role === 'admin' || customer?.user?.role === 'admin'
+  const isStaff = isStaffRole(auth?.user)
+  const isAdmin = auth?.user?.role === 'admin'
 
   /* ---------- Modales / carrito ---------- */
   const [productModal, setProductModal] = useState(null) // { product, color, size, qty }
@@ -256,7 +256,7 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
           onStoreAuthChange(null)
           toast('Sesión cerrada. ¡Vuelve pronto! ✨')
         }}
-        onLoginClick={() => (isStaff ? (location.hash = '#/dashboard') : (location.hash = '#/acceder'))}
+        onLoginClick={() => (location.hash = '#/acceder')}
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
         onOpenCart={() => setCartOpen(true)}
       />
@@ -465,44 +465,47 @@ export default function App() {
   const route = useHashRoute()
   // localStorage es la fuente de verdad: se re-sincroniza en cada cambio de ruta
   // (el interceptor 401 borra localStorage y salta a #/login, y aquí se refleja)
-  const [auth, setAuth] = useState(() => session.get())
+  const [auth, setAuth] = useState(null)
+  const [authStatus, setAuthStatus] = useState('checking')
   // Sesión del cliente de la tienda (login público), también en localStorage
   const [storeAuth, setStoreAuth] = useState(() => storeSession.get())
 
-  /* Rutas protegidas: Dashboard solo para staff con sesión; login público (#/acceder)
-     no fuerza redirección automática: se muestra la tienda y el aviso de registro
-     invita al usuario a abrir sesión desde la esquina superior derecha. */
+  /* El rol del panel solo se acepta después de validar el JWT contra la API. */
   useEffect(() => {
-    const a = session.get()
     const sa = storeSession.get()
-    setAuth(a)
     setStoreAuth(sa)
+    let active = true
+    const savedSession = session.get()
 
-    // Si el usuario inició sesión en la tienda con una cuenta de staff (admin o empleado),
-    // asegurar que también quede la sesión de personal activa para el dashboard
-    if (isStaffRole(sa?.user) && sa?.token && !a) {
-      session.save({ token: sa.token, user: sa.user })
-      setAuth(session.get())
+    if (!savedSession?.token) {
+      setAuth(null)
+      setAuthStatus('denied')
+      if (route.startsWith('#/dashboard')) location.replace('#/login')
+      return () => { active = false }
     }
 
-    if (route.startsWith('#/login') && isStaffRole(a?.user || sa?.user)) {
-      // personal con sesión válida en #/login -> dashboard
-      location.replace('#/dashboard')
-      return
-    }
-    if (route.startsWith('#/dashboard')) {
-      const activeStaff = a || (isStaffRole(sa?.user) ? sa : null)
-      if (!activeStaff) {
-        // sin sesión -> login del personal
-        location.replace('#/login')
-        return
-      }
-      if (!isStaffRole(activeStaff.user)) {
-        // otro rol (p. ej. cliente): no entra al panel, vuelve al login
-        location.replace('#/login')
-        return
-      }
-    }
+    authApi.me()
+      .then(({ data }) => {
+        if (!active) return
+        if (!isStaffRole(data?.data)) {
+          session.clear()
+          setAuth(null)
+          setAuthStatus('denied')
+          if (route.startsWith('#/dashboard')) location.replace('#/login')
+          return
+        }
+        setAuth({ token: savedSession.token, user: data.data })
+        setAuthStatus('verified')
+        if (route.startsWith('#/login')) location.replace('#/dashboard')
+      })
+      .catch(() => {
+        if (!active) return
+        setAuth(null)
+        setAuthStatus('denied')
+        if (route.startsWith('#/dashboard')) location.replace('#/login')
+      })
+
+    return () => { active = false }
   }, [route])
 
   /* ===== Retorno de Google OAuth (redirect flow) =====
@@ -524,6 +527,9 @@ export default function App() {
     storeAuthApi
       .google({ code })
       .then((data) => {
+        session.clear()
+        setAuth(null)
+        setAuthStatus('denied')
         storeRemember.saveSocial(data.user, data.token)
         setStoreAuth(storeSession.get())
         location.hash = '#/'
@@ -556,6 +562,9 @@ export default function App() {
         /* Registro de usuario común (rol 'user'): la sesión es de la tienda,
            no del panel, así que se guarda como cliente y se va al home */
         onCustomerAuth={() => {
+          session.clear()
+          setAuth(null)
+          setAuthStatus('denied')
           setStoreAuth(storeSession.get())
           location.hash = '#/'
         }}
@@ -575,6 +584,9 @@ export default function App() {
           location.hash = '#/dashboard'
         }}
         onCustomerAuth={() => {
+          session.clear()
+          setAuth(null)
+          setAuthStatus('denied')
           setStoreAuth(storeSession.get())
           location.hash = '#/'
         }}
@@ -590,14 +602,10 @@ export default function App() {
     return (
       <StoreLoginPage
         onSuccess={(data) => {
+          session.clear()
+          setAuth(null)
+          setAuthStatus('denied')
           setStoreAuth(storeSession.get())
-          const u = data?.user
-          if (isStaffRole(u) && data?.token) {
-            session.save({ token: data.token, user: u })
-            setAuth(session.get())
-            location.hash = '#/dashboard'
-            return
-          }
           location.hash = '#/'
         }}
       />
@@ -605,11 +613,15 @@ export default function App() {
   }
 
   if (route.startsWith('#/dashboard')) {
+    if (authStatus !== 'verified' || !auth) {
+      return <main className="dash-content"><p className="dash-msg" role="status"><span className="spinner"></span> Verificando acceso al panel…</p></main>
+    }
     return (
       <Dashboard
         onLogout={() => {
           session.clear()
           setAuth(null)
+          setAuthStatus('denied')
           location.hash = '#/login'
         }}
         onGoHome={() => { location.hash = '#/' }}
