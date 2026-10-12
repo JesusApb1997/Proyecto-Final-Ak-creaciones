@@ -102,6 +102,12 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
     localStorage.setItem('ak-cart', JSON.stringify(cart))
   }, [cart])
 
+  useEffect(() => {
+    const onCartReset = () => setCart([])
+    window.addEventListener('ak-cart-reset', onCartReset)
+    return () => window.removeEventListener('ak-cart-reset', onCartReset)
+  }, [])
+
   /* ---------- Cargar catálogo desde la API (axios) ---------- */
   const loadProducts = async () => {
     try {
@@ -606,6 +612,7 @@ export default function App() {
           setAuth(null)
           location.hash = '#/login'
         }}
+        onGoHome={() => { location.hash = '#/' }}
       />
     )
   }

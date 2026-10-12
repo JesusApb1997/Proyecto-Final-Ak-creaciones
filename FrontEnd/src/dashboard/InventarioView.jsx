@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { inventarioApi, uploadsApi } from '../api/client.js'
 import { INVENTARIO_IMAGES, cdn } from '../config.js'
 
@@ -120,7 +121,7 @@ function MaterialFormModal({ material, onClose, onSaved }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal admin-modal unav-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box">
@@ -220,7 +221,8 @@ function MaterialFormModal({ material, onClose, onSaved }) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -250,7 +252,7 @@ function StockModal({ material, onClose, onSaved }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal admin-modal unav-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box">
@@ -283,7 +285,8 @@ function StockModal({ material, onClose, onSaved }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

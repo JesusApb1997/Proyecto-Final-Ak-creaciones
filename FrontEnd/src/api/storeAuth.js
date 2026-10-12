@@ -3,6 +3,7 @@
    Endpoints: /api/store-auth (register · login · google · apple · me)
    ========================================================================== */
 import api from './client.js'
+import { resetCart } from '../cart/cartState.js'
 
 /* Claves en localStorage:
    - ak-store-token / ak-store-user  -> sesión activa del cliente
@@ -82,6 +83,7 @@ export const storeSession = {
     } catch {
       /* localStorage no disponible (modo privado) */
     }
+    resetCart()
   },
 
   get() {
@@ -109,6 +111,7 @@ export const storeSession = {
     } catch {
       /* noop */
     }
+    resetCart()
     window.dispatchEvent(new Event('ak-store-session-changed'))
   },
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { session, authApi } from '../api/auth.js'
 import { productsApi, usersApi, uploadsApi, deliveryApi } from '../api/client.js'
 import UserNavbar from '../navbar/UserNavbar.jsx'
@@ -113,7 +114,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal admin-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box">
@@ -215,7 +216,8 @@ function ProductFormModal({ product, onClose, onSaved }) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -412,7 +414,7 @@ function UserFormModal({ user, onClose, onSaved }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal admin-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box">
@@ -479,7 +481,8 @@ function UserFormModal({ user, onClose, onSaved }) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -504,7 +507,7 @@ function PasswordModal({ user, onClose, onSaved }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal admin-modal unav-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-box">
@@ -531,7 +534,8 @@ function PasswordModal({ user, onClose, onSaved }) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -692,7 +696,7 @@ function UsersView({ showToast, me }) {
 /* ==========================================================
    Dashboard principal
    ========================================================== */
-export default function Dashboard({ onLogout }) {
+export default function Dashboard({ onLogout, onGoHome }) {
   const user = session.getUser() ?? {}
   const [profile, setProfile] = useState(null)
   const [open, setOpen] = useState(false)
@@ -834,8 +838,8 @@ export default function Dashboard({ onLogout }) {
             <strong>{u.name} {u.last_name ?? u.lastName}</strong>
             <small>{u.role === 'admin' ? 'Administradora' : u.role}</small>
           </div>
-          <button className="btn-icon" onClick={onLogout} aria-label="Cerrar sesión" title="Cerrar sesión">
-            <i className="bi bi-box-arrow-right"></i>
+          <button className="btn-icon" onClick={onGoHome} aria-label="Volver a la página principal" title="Volver a la página principal">
+            <i className="bi bi-house-door"></i>
           </button>
         </div>
       </aside>
@@ -880,8 +884,13 @@ export default function Dashboard({ onLogout }) {
                   </a>
                 ))}
                 <hr className="dash-menu-sep" />
-                <button type="button" role="menuitem" className="dash-menu-item danger" onClick={onLogout}>
-                  <i className="bi bi-box-arrow-right"></i> Cerrar sesión
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="dash-menu-item"
+                  onClick={() => { setMenuOpen(false); onGoHome?.() }}
+                >
+                  <i className="bi bi-house-door"></i> Volver a la página principal
                 </button>
               </div>
             </div>

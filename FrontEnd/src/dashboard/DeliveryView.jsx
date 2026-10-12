@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { deliveryApi } from '../api/client.js'
 
 const STATUS_COLORS = {
@@ -152,7 +153,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
         </div>
       )}
 
-      {selected && (
+      {selected && createPortal(
         <div className="modal admin-modal show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}>
           <div className="modal-box" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <button className="btn-icon modal-close" onClick={() => setSelected(null)} aria-label="Cerrar">
@@ -244,7 +245,8 @@ export default function DeliveryView({ showToast, isAdmin }) {
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

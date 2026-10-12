@@ -206,7 +206,13 @@
 }
 
 /* ================= DASHBOARD ================= */
-.dash{ display:grid; grid-template-columns:260px 1fr; min-height:100vh; background:var(--bg); }
+.dash{
+  display:grid; grid-template-columns:260px 1fr; min-height:100vh; background:var(--bg);
+  transition:grid-template-columns .45s cubic-bezier(.34,1.4,.42,1);
+}
+@media (min-width:901px){
+  .dash.collapsed{ grid-template-columns:74px minmax(0,1fr); }
+}
 
 /* ================= INVENTARIO (solo admin) ================= */
 .inv-summary{ display:flex; flex-wrap:wrap; gap:.6rem; margin:0 0 1rem; }

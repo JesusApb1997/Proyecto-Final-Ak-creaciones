@@ -2,6 +2,7 @@
    src/api/auth.js — Autenticación (JWT + localStorage)
    ========================================================================== */
 import api from './client.js'
+import { resetCart } from '../cart/cartState.js'
 
 const TOKEN_KEY = 'ak-token'
 const USER_KEY = 'ak-user' // { name, lastName, email, role }
@@ -19,6 +20,7 @@ export const session = {
         role: user.role,
       })
     )
+    resetCart()
   },
 
   get() {
@@ -42,6 +44,7 @@ export const session = {
   clear() {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    resetCart()
     // Avisa a la app (App.jsx) para que actualice su estado de sesión
     window.dispatchEvent(new Event('ak-session-cleared'))
   },
