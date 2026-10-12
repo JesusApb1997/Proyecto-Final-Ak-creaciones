@@ -79,8 +79,8 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange }) {
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [cart, setCart] = useState(() => readLS('ak-cart', []))
-  const isStaff = isStaffRole(auth?.user)
-  const isAdmin = auth?.user?.role === 'admin'
+  const isStaff = isStaffRole(auth?.user) || isStaffRole(customer?.user)
+  const isAdmin = auth?.user?.role === 'admin' || customer?.user?.role === 'admin'
 
   /* ---------- Modales / carrito ---------- */
   const [productModal, setProductModal] = useState(null) // { product, color, size, qty }
@@ -468,22 +468,31 @@ export default function App() {
      invita al usuario a abrir sesión desde la esquina superior derecha. */
   useEffect(() => {
     const a = session.get()
+    const sa = storeSession.get()
     setAuth(a)
+    setStoreAuth(sa)
 
-    if (route.startsWith('#/login') && isStaffRole(a?.user)) {
+    // Si el usuario inició sesión en la tienda con una cuenta de staff (admin o empleado),
+    // asegurar que también quede la sesión de personal activa para el dashboard
+    if (isStaffRole(sa?.user) && sa?.token && !a) {
+      session.save({ token: sa.token, user: sa.user })
+      setAuth(session.get())
+    }
+
+    if (route.startsWith('#/login') && isStaffRole(a?.user || sa?.user)) {
       // personal con sesión válida en #/login -> dashboard
       location.replace('#/dashboard')
       return
     }
     if (route.startsWith('#/dashboard')) {
-      if (!a) {
+      const activeStaff = a || (isStaffRole(sa?.user) ? sa : null)
+      if (!activeStaff) {
         // sin sesión -> login del personal
         location.replace('#/login')
         return
       }
-      if (!isStaffRole(a.user)) {
+      if (!isStaffRole(activeStaff.user)) {
         // otro rol (p. ej. cliente): no entra al panel, vuelve al login
-        // del personal (que no redirige de vuelta: evita un bucle)
         location.replace('#/login')
         return
       }

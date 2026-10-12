@@ -4,7 +4,7 @@ import InstallButton from './InstallButton.jsx'
 import './customerMenu.css'
 
 /* Menú del cliente con sesión abierta (login público #/acceder) */
-function CustomerMenu({ customer, onLogout }) {
+function CustomerMenu({ customer, onLogout, isStaff }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -24,6 +24,7 @@ function CustomerMenu({ customer, onLogout }) {
 
   const name = customer?.user?.name ?? 'Mi cuenta'
   const email = customer?.user?.email ?? ''
+  const role = customer?.user?.role ?? ''
   const provider = customer?.user?.provider
   const providerIcon =
     provider === 'google' ? 'bi-google' : provider === 'apple' ? 'bi-apple' : 'bi-envelope'
@@ -45,11 +46,33 @@ function CustomerMenu({ customer, onLogout }) {
         <div className="cust-menu-head">
           <strong>{name}</strong>
           <small>{email}</small>
-          <span className="cust-provider">
-            <i className={`bi ${providerIcon}`}></i>
-            {provider === 'google' ? 'Google' : provider === 'apple' ? 'Apple' : 'Correo'}
-          </span>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="cust-provider">
+              <i className={`bi ${providerIcon}`}></i>
+              {provider === 'google' ? 'Google' : provider === 'apple' ? 'Apple' : 'Correo'}
+            </span>
+            {isStaff && (
+              <span className="cust-provider" style={{ color: '#E85D9E', background: 'rgba(232, 93, 158, 0.12)' }}>
+                <i className="bi bi-shield-check"></i>
+                {role === 'admin' ? 'Administrador' : 'Trabajador'}
+              </span>
+            )}
+          </div>
         </div>
+        {isStaff && (
+          <button
+            type="button"
+            role="menuitem"
+            className="cust-menu-item"
+            style={{ color: 'var(--turq)', fontWeight: 600 }}
+            onClick={() => {
+              setOpen(false)
+              window.location.hash = '#/dashboard'
+            }}
+          >
+            <i className="bi bi-speedometer2"></i> Ir al Dashboard
+          </button>
+        )}
         <button
           type="button"
           role="menuitem"
@@ -123,9 +146,22 @@ export default function Header({
             <i className={`bi ${theme === 'dark' ? 'bi-sun' : 'bi-moon-stars'}`}></i>
           </button>
 
+          {/* Acceso directo al Dashboard para personal (admin y trabajadores) justo al lado del modo nocturno */}
+          {isStaff && (
+            <button
+              className="btn-icon"
+              onClick={() => (location.hash = '#/dashboard')}
+              aria-label="Abrir panel de administración"
+              title="Panel de administración (Dashboard)"
+              style={{ color: 'var(--turq)', borderColor: 'color-mix(in srgb, var(--turq) 35%, transparent)' }}
+            >
+              <i className="bi bi-speedometer2"></i>
+            </button>
+          )}
+
           {/* Login opcional del cliente/comprador: correo, Google o Apple */}
           {customer ? (
-            <CustomerMenu customer={customer} onLogout={onLogoutCustomer} />
+            <CustomerMenu customer={customer} onLogout={onLogoutCustomer} isStaff={isStaff} />
           ) : (
             <button
               type="button"
@@ -150,18 +186,6 @@ export default function Header({
               <i className="bi bi-person-plus"></i>
               <span className="access-corner-txt">Regístrate</span>
             </a>
-          )}
-
-          {/* Acceso rápido al panel para personal (oculto para clientes) */}
-          {isStaff && (
-            <button
-              className="btn-icon"
-              onClick={() => (location.hash = '#/dashboard')}
-              aria-label="Abrir panel de administración"
-              title="Panel de administración"
-            >
-              <i className="bi bi-speedometer2"></i>
-            </button>
           )}
 
           {/* Instalar la PWA: disponible siempre, el usuario elige cuándo */}
