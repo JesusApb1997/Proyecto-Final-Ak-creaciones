@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { storeSession } from '../api/storeAuth.js'
 import { deliveryApi } from '../api/client.js'
 import { WHATSAPP_NUMBER, money } from '../config.js'
 import InternationalPhoneInput, { isValidInternationalPhone } from '../components/InternationalPhoneInput.jsx'
+
+const DeliveryLocationPicker = lazy(() => import('./DeliveryLocationPicker.jsx'))
 
 export default function DeliveryForm({ open, items, total, onClose, toast, userSession, onLogin }) {
   const cliente = userSession ?? storeSession.get()
@@ -17,9 +19,11 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
   })
   const [sending, setSending] = useState(false)
   const [submitted, setSubmitted] = useState(null)
+  const [mapPickerOpen, setMapPickerOpen] = useState(false)
 
   const close = () => {
     setSubmitted(null)
+    setMapPickerOpen(false)
     onClose()
   }
 
@@ -77,7 +81,7 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
   if (!open) return null
 
   return (
-    <div className="modal show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="modal show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) close() }}>
       <div className="modal-box" style={{ maxWidth: '500px' }}>
         <button className="btn-icon modal-close" onClick={close} aria-label="Cerrar">
           <i className="bi bi-x-lg"></i>
@@ -124,7 +128,29 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
 
           <div className="ff">
             <label>Ubicación de Google Maps (opcional si escribes la dirección)</label>
-            <input type="url" value={form.maps_url} onChange={(e) => setForm({ ...form, maps_url: e.target.value })} placeholder="https://maps.app.goo.gl/..." />
+            <div className="maps-url-control">
+              <input type="url" value={form.maps_url} onChange={(e) => setForm({ ...form, maps_url: e.target.value })} placeholder="https://maps.app.goo.gl/..." />
+              <button
+                type="button"
+                className="maps-picker-toggle"
+                aria-label={mapPickerOpen ? 'Cerrar selector de Google Maps' : 'Seleccionar ubicación en Google Maps'}
+                aria-expanded={mapPickerOpen}
+                onClick={() => setMapPickerOpen((isOpen) => !isOpen)}
+              >
+                <i className="bi bi-geo-alt-fill" aria-hidden="true"></i>
+              </button>
+            </div>
+            {mapPickerOpen && (
+              <Suspense fallback={<p className="delivery-map-loading" role="status">Cargando mapa...</p>}>
+                <DeliveryLocationPicker
+                  onCancel={() => setMapPickerOpen(false)}
+                  onSelect={(mapsUrl) => {
+                    setForm((current) => ({ ...current, maps_url: mapsUrl }))
+                    setMapPickerOpen(false)
+                  }}
+                />
+              </Suspense>
+            )}
           </div>
 
           <div className="ff">
