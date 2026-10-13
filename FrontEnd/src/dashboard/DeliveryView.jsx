@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { deliveryApi } from '../api/client.js'
+import InternationalPhoneInput, { isValidInternationalPhone } from '../components/InternationalPhoneInput.jsx'
 
 const STATUS_COLORS = {
   pendiente: 'warning',
@@ -60,7 +61,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
     setSelected(delivery)
     setDispatchForm({
       driver_name: delivery.driver_name || '',
-      driver_phone: delivery.driver_phone || '',
+      driver_phone: isValidInternationalPhone(delivery.driver_phone) ? delivery.driver_phone : '',
       location_confirmed: Boolean(delivery.location_confirmed),
     })
     setDispatchError('')
@@ -70,6 +71,10 @@ export default function DeliveryView({ showToast, isAdmin }) {
   const dispatchDelivery = async (event) => {
     event.preventDefault()
     if (!selected || dispatching) return
+    if (!isValidInternationalPhone(dispatchForm.driver_phone)) {
+      setDispatchError('Selecciona el país e ingresa un teléfono válido para el conductor.')
+      return
+    }
     setDispatching(true)
     setDispatchError('')
     setWhatsappResult(null)
@@ -297,7 +302,13 @@ export default function DeliveryView({ showToast, isAdmin }) {
                   </div>
                   <div className="ff">
                     <label>Teléfono del conductor *</label>
-                    <input required type="tel" value={dispatchForm.driver_phone} onChange={(e) => setDispatchForm({ ...dispatchForm, driver_phone: e.target.value })} disabled={dispatching} />
+                    <InternationalPhoneInput
+                      id="delivery-driver-phone"
+                      required
+                      value={dispatchForm.driver_phone}
+                      onChange={(phone) => setDispatchForm({ ...dispatchForm, driver_phone: phone })}
+                      disabled={dispatching}
+                    />
                   </div>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}>
@@ -306,7 +317,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
                 </label>
                 {dispatchError && <p className="login-error" role="alert">{dispatchError}</p>}
                 {whatsappResult?.sent && <p className="pm-status"><i className="bi bi-check-circle"></i> Aviso enviado automáticamente por WhatsApp.</p>}
-                {whatsappResult?.url && <p className="pm-status">Cloud API no está disponible. <a href={whatsappResult.url} target="_blank" rel="noreferrer">Abrir mensaje en WhatsApp</a></p>}
+                {whatsappResult?.url && <p className="pm-status">WhatsApp automático no está conectado. <a href={whatsappResult.url} target="_blank" rel="noreferrer">Abrir mensaje con factura en WhatsApp</a></p>}
                 <button type="submit" className="btn btn-grad btn-block" disabled={dispatching}>
                   {dispatching ? 'Guardando y notificando…' : 'Verificar, asignar y avisar al cliente'}
                 </button>

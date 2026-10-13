@@ -19,6 +19,7 @@ const storeOrderRoutes = require('./routes/storeOrderRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const paymentSettingsRoutes = require('./routes/paymentSettingsRoutes');
 const inventarioRoutes = require('./routes/inventarioRoutes');
+const { initializeWhatsAppClient } = require('./services/whatsapp');
 const uploadController = require('./controllers/uploadController');
 const { verifyToken, requireRole } = require('./middleware/auth');
 
@@ -125,4 +126,5 @@ app.listen(PORT, () => {
   console.log(`👥 Endpoints de usuarios: http://localhost:${PORT}/api/users`);
   console.log(`🛍️  Endpoints de productos: http://localhost:${PORT}/api/products`);
   console.log(`🔐 Endpoint de login:      http://localhost:${PORT}/api/auth/login`);
+  initializeWhatsAppClient();
 });

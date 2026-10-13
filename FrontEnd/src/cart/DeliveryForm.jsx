@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { storeSession } from '../api/storeAuth.js'
 import { deliveryApi } from '../api/client.js'
 import { WHATSAPP_NUMBER, money } from '../config.js'
+import InternationalPhoneInput, { isValidInternationalPhone } from '../components/InternationalPhoneInput.jsx'
 
 export default function DeliveryForm({ open, items, total, onClose, toast, userSession, onLogin }) {
   const cliente = userSession ?? storeSession.get()
@@ -30,6 +31,10 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
     }
     if (!form.name.trim() || !form.last_name.trim() || !form.phone.trim() || (!form.address.trim() && !form.maps_url.trim())) {
       toast?.('✗ Completa nombre, apellido, teléfono y una dirección escrita o enlace de Maps')
+      return
+    }
+    if (!isValidInternationalPhone(form.phone)) {
+      toast?.('✗ Selecciona el país e ingresa un número de teléfono válido')
       return
     }
 
@@ -104,7 +109,12 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
 
           <div className="ff">
             <label>Teléfono *</label>
-            <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+58 412 1234567" />
+            <InternationalPhoneInput
+              id="delivery-phone"
+              required
+              value={form.phone}
+              onChange={(phone) => setForm({ ...form, phone })}
+            />
           </div>
 
           <div className="ff">

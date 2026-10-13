@@ -215,7 +215,7 @@ export default function MobilePaymentModal({ open, items, total, userSession, on
                 disabled={sending}
               />
               {receiptPreview && (
-                <div className="ff-img-preview">
+                <div className="ff-img-preview pm-receipt-preview">
                   <img src={receiptPreview} alt="Vista previa del comprobante" />
                 </div>
               )}

@@ -106,8 +106,13 @@ const deliveryController = {
         whatsapp: { sent: notification.sent, mode: notification.mode, url: notification.url || null },
       });
     } catch (err) {
-      console.error('✗ Error despachando el delivery:', err.message);
-      res.status(500).json({ success: false, message: 'No se pudo asignar el conductor.' });
+      console.error('✗ Error despachando el delivery:', err);
+      res.status(500).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production'
+          ? 'No se pudo asignar el conductor. Revisa los registros del backend.'
+          : `No se pudo asignar el conductor: ${err.message}`,
+      });
     }
   },
 

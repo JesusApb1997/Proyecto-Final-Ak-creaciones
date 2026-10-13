@@ -17,5 +17,9 @@ uploads/
 # Correos de recuperación en modo desarrollo (contienen enlaces de reset)
 .mail-out/
 
+# Sesión local vinculada de WhatsApp Web (incluye credenciales)
+.wwebjs_auth/
+.wwebjs_cache/
+
 # Freebuff
 .freebuff/

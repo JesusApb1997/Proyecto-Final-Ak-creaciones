@@ -46,7 +46,7 @@ if (pids.length === 0) {
 for (const pid of pids) {
   try {
     if (isWindows) {
-      execSync(`taskkill /PID ${pid} /F`, { stdio: 'pipe' });
+      execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'pipe' });
     } else {
       execSync(`kill -9 ${pid}`, { stdio: 'pipe' });
     }
