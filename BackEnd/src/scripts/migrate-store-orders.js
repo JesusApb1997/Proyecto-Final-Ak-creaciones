@@ -38,7 +38,7 @@ async function migrateStoreOrders() {
     await pool.query('ALTER TABLE store_orders ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ');
     await pool.query('ALTER TABLE store_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ');
     await pool.query('ALTER TABLE store_orders DROP CONSTRAINT IF EXISTS store_orders_status_check');
-    await pool.query("ALTER TABLE store_orders ADD CONSTRAINT store_orders_status_check CHECK (status IN ('reportado', 'verificado', 'rechazado'))");
+    await pool.query("ALTER TABLE store_orders ADD CONSTRAINT store_orders_status_check CHECK (status IN ('pendiente', 'reportado', 'verificado', 'rechazado'))");
     await pool.query('CREATE INDEX IF NOT EXISTS store_orders_created_idx ON store_orders (created_at DESC)');
     await pool.query('CREATE INDEX IF NOT EXISTS store_orders_user_idx ON store_orders (user_id)');
     console.log('✅ Tabla store_orders lista.');

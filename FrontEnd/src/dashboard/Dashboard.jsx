@@ -7,6 +7,7 @@ import InventarioView from './InventarioView.jsx'
 import DeliveryView from './DeliveryView.jsx'
 import OrdersView from './OrdersView.jsx'
 import PaymentSettingsView from './PaymentSettingsView.jsx'
+import ReportToolbar, { useReportFilter } from './ReportTools.jsx'
 import { money, PRODUCT_CATEGORIES, PRODUCT_IMAGES, cdn } from '../config.js'
 
 /* ==========================================================
@@ -18,6 +19,22 @@ const norm = (row) => ({
   oldPrice: row.old_price != null ? Number(row.old_price) : row.oldPrice ?? null,
   img: cdn(row.img), // resuelve URLs del bucket (y deja pasar las absolutas)
 })
+
+const PRODUCT_REPORT_FIELDS = [
+  { value: 'name', label: 'Nombre', getValue: (product) => product.name },
+  { value: 'category', label: 'Categoría', getValue: (product) => product.cat },
+  { value: 'price', label: 'Precio', getValue: (product) => product.price },
+]
+
+const PRODUCT_REPORT_COLUMNS = [
+  { label: 'Producto', getValue: (product) => product.name },
+  { label: 'Categoría', getValue: (product) => product.cat },
+  { label: 'Precio', getValue: (product) => money(product.price) },
+  { label: 'Existencias', getValue: (product) => Number(product.stock ?? 0) },
+  { label: 'Precio anterior', getValue: (product) => product.oldPrice ? money(product.oldPrice) : '—' },
+  { label: 'Color', getValue: (product) => product.color || '—' },
+  { label: 'Etiqueta', getValue: (product) => product.tag || '—' },
+]
 
 const NAV = [
   { icon: 'bi-speedometer2', label: 'Resumen', href: '#/dashboard', key: 'resumen' },
@@ -55,6 +72,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
     desc: product?.desc ?? '',
     img: product?.img ?? cdn(PRODUCT_IMAGES[0]),
     color: product?.color ?? 'Dorado, Plateado',
+    stock: product?.stock ?? 0,
     tag: product?.tag ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -63,6 +81,11 @@ function ProductFormModal({ product, onClose, onSaved }) {
   const fileInputRef = useRef(null)
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+
+  useEffect(() => {
+    document.body.classList.add('no-scroll')
+    return () => document.body.classList.remove('no-scroll')
+  }, [])
 
   /* Sube la imagen elegida y pone la URL devuelta por la API en el formulario */
   const handleUpload = async (e) => {
@@ -104,6 +127,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
         desc: form.desc,
         img: form.img,
         color: form.color,
+        stock: Number(form.stock),
         tag: form.tag || null,
       }
       // La imagen ya quedó guardada en Supabase Storage al subirla (uploadsApi);
@@ -120,15 +144,15 @@ function ProductFormModal({ product, onClose, onSaved }) {
   return createPortal(
     <div className="modal admin-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box">
+      <div className="modal-box admin-edit-modal product-edit-modal">
         <button className="btn-icon modal-close" onClick={onClose} aria-label="Cerrar">
           <i className="bi bi-x-lg"></i>
         </button>
         <p className="kicker">Productos</p>
         <h3>{isEdit ? `Editar: ${product.name}` : 'Nuevo producto'}</h3>
 
-        <form className="product-form" onSubmit={submit}>
-          <div className="ff">
+        <form className="product-form modal-edit-grid" onSubmit={submit}>
+          <div className="ff product-edit-name">
             <label>Nombre</label>
             <input required value={form.name} onChange={set('name')} />
           </div>
@@ -164,16 +188,22 @@ function ProductFormModal({ product, onClose, onSaved }) {
           </div>
 
           <div className="ff">
+            <label>Existencias del producto terminado</label>
+            <input type="number" min="0" step="1" required value={form.stock} onChange={set('stock')} />
+            <small>Unidades disponibles para vender. Se descuentan al confirmar el pedido o despacharlo.</small>
+          </div>
+
+          <div className="ff product-edit-description">
             <label>Descripción</label>
             <textarea required rows="3" value={form.desc} onChange={set('desc')} />
           </div>
 
-          <div className="ff">
+          <div className="ff product-edit-color">
             <label>Color / acabado (separa varios con coma)</label>
             <input value={form.color} onChange={set('color')} placeholder="Dorado, Plateado" />
           </div>
 
-          <div className="ff">
+          <div className="ff product-edit-image">
             <label>Imagen</label>
             <div className="ff-img-preview">
               {form.img && <img src={form.img} alt="Vista previa" onError={(e) => { e.currentTarget.style.opacity = 0.25 }} />}
@@ -198,6 +228,19 @@ function ProductFormModal({ product, onClose, onSaved }) {
                   <><i className="bi bi-upload"></i> Subir imagen</>
                 )}
               </button>
+              <a
+                className="btn btn-ghost product-image-preview"
+                href={form.img || undefined}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Previsualizar imagen en una ventana nueva"
+                title="Ver imagen en una ventana nueva"
+                aria-disabled={!form.img}
+                onClick={(event) => { if (!form.img) event.preventDefault() }}
+              >
+                <i className="bi bi-eye" aria-hidden="true"></i>
+                <span>Previsualizar</span>
+              </a>
               <small className="ff-upload-hint">JPG, PNG, WEBP, GIF o AVIF · máx. 5 MB</small>
             </div>
           </div>
@@ -222,6 +265,7 @@ function ProductsView({ showToast, readOnly = false }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null) // null | 'new' | producto
+  const report = useReportFilter(products, PRODUCT_REPORT_FIELDS)
 
   const load = async () => {
     setLoading(true)
@@ -275,21 +319,30 @@ function ProductsView({ showToast, readOnly = false }) {
       {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
 
       {!loading && !error && (
+        <>
+        <ReportToolbar title="Reporte de productos" fields={PRODUCT_REPORT_FIELDS} columns={PRODUCT_REPORT_COLUMNS} report={report} />
         <div className="dash-table-wrap">
           <table className="dash-table">
             <thead>
               <tr>
+                <th aria-label="Seleccionar productos">
+                  <input type="checkbox" aria-label="Seleccionar todos los productos mostrados" checked={report.allVisibleSelected} onChange={report.toggleVisible} disabled={!report.filteredRecords.length} />
+                </th>
                 <th>Producto</th>
                 <th>Categoría</th>
                 <th>Color</th>
                 <th>Precio</th>
+                <th>Existencias</th>
                 <th>Etiqueta</th>
                 {!readOnly && <th aria-label="Acciones"></th>}
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {report.filteredRecords.length === 0 ? (
+                <tr><td colSpan={readOnly ? 7 : 8} className="report-empty">No hay productos que coincidan con la búsqueda.</td></tr>
+              ) : report.filteredRecords.map((p) => (
                 <tr key={p.id}>
+                  <td><input type="checkbox" aria-label={`Seleccionar ${p.name}`} checked={report.selectedIds.has(String(p.id))} onChange={() => report.toggleRow(p.id)} /></td>
                   <td>
                     <div className="dash-prod">
                       <img src={p.img} alt="" loading="lazy"
@@ -305,6 +358,7 @@ function ProductsView({ showToast, readOnly = false }) {
                   <td>
                     {p.oldPrice ? <s>{money(p.oldPrice)}</s> : null} <strong>{money(p.price)}</strong>
                   </td>
+                  <td><strong>{Number(p.stock ?? 0)}</strong></td>
                   <td>
                     {p.tag === 'nuevo' && <span className="badge badge-new">Nuevo</span>}
                     {p.tag === 'oferta' && <span className="badge badge-offer">Oferta</span>}
@@ -325,6 +379,7 @@ function ProductsView({ showToast, readOnly = false }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {editing && (
@@ -383,6 +438,11 @@ function UserFormModal({ user, onClose, onSaved }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    document.body.classList.add('no-scroll')
+    return () => document.body.classList.remove('no-scroll')
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -486,6 +546,11 @@ function PasswordModal({ user, onClose, onSaved }) {
   const [pass, setPass] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    document.body.classList.add('no-scroll')
+    return () => document.body.classList.remove('no-scroll')
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()

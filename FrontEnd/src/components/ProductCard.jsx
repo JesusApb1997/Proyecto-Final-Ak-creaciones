@@ -1,6 +1,8 @@
 import { money, cdn, localFallback } from '../config.js'
 
 export default function ProductCard({ product: p, onOpen, onQuickAdd }) {
+  const stock = Number(p.stock)
+  const available = Number.isInteger(stock) && stock > 0
   /* Fallback a la copia local de public/ si la imagen no está (aún) en el bucket */
   const onImgError = (e) => {
     const local = localFallback(p.img)
@@ -32,18 +34,20 @@ export default function ProductCard({ product: p, onOpen, onQuickAdd }) {
         <div className="card-badges">{badge}</div>
         <button
           className="card-quick"
+          disabled={!available}
           onClick={(e) => {
             e.stopPropagation()
             onQuickAdd()
           }}
         >
-          <i className="bi bi-bag-plus"></i> Agregar
+          <i className={`bi ${available ? 'bi-bag-plus' : 'bi-bag-x'}`}></i> {available ? 'Agregar' : 'Agotado'}
         </button>
       </div>
       <div className="card-body">
         <p className="card-cat">{p.cat}</p>
         <h3 className="card-title">{p.name}</h3>
         <p className="card-desc">{p.desc}</p>
+        <small className="product-stock-label">{available ? `${stock} disponibles` : 'Agotado'}</small>
         <div className="card-row">
           <span className="price">
             {p.oldPrice && <span className="price-old">{money(p.oldPrice)}</span>}
@@ -51,6 +55,7 @@ export default function ProductCard({ product: p, onOpen, onQuickAdd }) {
           </span>
           <button
             className="add-btn"
+            disabled={!available}
             aria-label={`Agregar ${p.name} al carrito`}
             onClick={(e) => {
               e.stopPropagation()

@@ -4,6 +4,8 @@
 const crypto = require('crypto');
 const Delivery = require('../models/Delivery');
 const { sendDeliveryUpdate } = require('../services/whatsapp');
+const { ProductStockError, assertStockAvailable } = require('../services/productStock');
+const pool = require('../config/db');
 
 const deliveryController = {
   // GET /api/delivery
@@ -55,6 +57,42 @@ const deliveryController = {
         return res.status(400).json({ success: false, message: 'El enlace debe ser una URL válida de Google Maps.' });
       }
 
+      if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
+        return res.status(400).json({ success: false, message: 'El pedido debe incluir productos válidos.' });
+      }
+      const requestedItems = items.map((item) => ({
+        id: Number(item?.id),
+        qty: Number(item?.qty),
+        color: item?.color ? String(item.color).slice(0, 60) : null,
+        size: item?.size ? String(item.size).slice(0, 60) : null,
+      }));
+      if (requestedItems.some((item) => !Number.isInteger(item.id) || item.id <= 0 ||
+          !Number.isInteger(item.qty) || item.qty < 1 || item.qty > 99)) {
+        return res.status(400).json({ success: false, message: 'El pedido contiene productos o cantidades inválidas.' });
+      }
+      const productIds = [...new Set(requestedItems.map((item) => item.id))];
+      const { rows: products } = await pool.query(
+        'SELECT id, name, price FROM products WHERE id = ANY($1::int[])',
+        [productIds]
+      );
+      const productsById = new Map(products.map((product) => [Number(product.id), product]));
+      const verifiedItems = requestedItems.map((item) => {
+        const product = productsById.get(item.id);
+        if (!product) return null;
+        return {
+          product_id: item.id,
+          name: product.name,
+          variante: [item.color, item.size].filter(Boolean).join(' · '),
+          qty: item.qty,
+          price: Number(product.price),
+        };
+      });
+      if (verifiedItems.some((item) => !item)) {
+        return res.status(400).json({ success: false, message: 'Uno de los productos del pedido ya no existe.' });
+      }
+      await assertStockAvailable(verifiedItems);
+      const verifiedTotal = verifiedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+
       const orderNumber = `DLV-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
       const invoiceNumber = `FAC-${orderNumber}`;
 
@@ -65,8 +103,8 @@ const deliveryController = {
         address: address ? String(address).trim() : 'Ubicación compartida por Google Maps',
         localidad: localidad ? String(localidad).trim() : null,
         maps_url: maps_url ? String(maps_url).trim() : null,
-        items: items || null,
-        total: total || 0,
+        items: verifiedItems,
+        total: verifiedTotal,
         status: 'pendiente',
         notes: notes ? String(notes).trim() : null,
         user_id: req.user.id,
@@ -76,6 +114,9 @@ const deliveryController = {
 
       res.status(201).json({ success: true, data: newDelivery });
     } catch (err) {
+      if (err instanceof ProductStockError) {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: err.message });
     }
   },
@@ -107,6 +148,9 @@ const deliveryController = {
       });
     } catch (err) {
       console.error('✗ Error despachando el delivery:', err);
+      if (err instanceof ProductStockError || err.code === 'DELIVERY_STATUS_CONFLICT') {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({
         success: false,
         message: process.env.NODE_ENV === 'production'
@@ -142,6 +186,9 @@ const deliveryController = {
       }
       res.json({ success: true, data: updated });
     } catch (err) {
+      if (err.code === 'DELIVERY_STATUS_CONFLICT') {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: err.message });
     }
   },

@@ -256,37 +256,6 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
                 : 'Registro básico de usuario — con tu correo'}
             </p>
 
-            {/* ===== Botones sociales =====
-                Solo se dibuja el proveedor con credenciales configuradas. */}
-            {hasSocial && (
-              <div className="store-social">
-                {socialConfig.googleEnabled && (
-                  <button
-                    type="button"
-                    className="store-social-btn google"
-                    onClick={joinWithGoogle}
-                    disabled={joinBusy || !!social}
-                  >
-                    <GoogleLogo />
-                    {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
-                  </button>
-                )}
-                {socialConfig.appleEnabled && (
-                  <button
-                    type="button"
-                    className="store-social-btn apple"
-                    onClick={joinWithApple}
-                    disabled={joinBusy || !!social}
-                  >
-                    <AppleLogo />
-                    {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {hasSocial && <div className="store-divider">o regístrate con tu correo</div>}
-
             {/* ===== Formulario básico: nombre · usuario · correo · contraseña ===== */}
             <form className="store-form" onSubmit={submitJoin}>
               <label className="store-field">
@@ -380,6 +349,36 @@ export default function LoginPage({ onSuccess, onCustomerAuth, registerOnly = fa
                 )}
               </button>
             </form>
+
+            {hasSocial && (
+              <>
+                <div className="store-divider">o regístrate también con</div>
+                <div className="store-social">
+                  {socialConfig.googleEnabled && (
+                    <button
+                      type="button"
+                      className="store-social-btn google"
+                      onClick={joinWithGoogle}
+                      disabled={joinBusy || !!social}
+                    >
+                      <GoogleLogo />
+                      {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
+                    </button>
+                  )}
+                  {socialConfig.appleEnabled && (
+                    <button
+                      type="button"
+                      className="store-social-btn apple"
+                      onClick={joinWithApple}
+                      disabled={joinBusy || !!social}
+                    >
+                      <AppleLogo />
+                      {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             <p className="store-switch">
               {registerOnly ? (

@@ -12,9 +12,9 @@
  *   2) recalcula los precios desde la base de datos (no confía en los que
  *      manda el navegador);
  *   3) genera un número de pedido (AK-YYYYMMDD-XXXX);
- *   4) envía al correo del usuario la factura estilizada con el monto y el
- *      detalle de todo lo que pidió;
- *   5) responde { orderNumber, total, email }.
+ *   4) guarda el pedido pendiente para confirmación administrativa y envía al
+ *      correo del usuario la factura con productos y precios recalculados;
+ *   5) responde con el pedido confirmado por el servidor para abrir WhatsApp.
  *
  * La variante /pago-movil hace exactamente lo mismo, pero el correo incluye
  * los datos del pago móvil configurados por el admin y el monto total del
@@ -24,6 +24,7 @@ const pool = require('../config/db');
 const { sendOrderInvoice } = require('../services/mailer');
 const PaymentSettings = require('../models/PaymentSettings');
 const StoreOrder = require('../models/StoreOrder');
+const { ProductStockError, assertStockAvailable } = require('../services/productStock');
 
 /* Genera un número de pedido legible: AK-20261004-7392 */
 function generateOrderNumber() {
@@ -46,16 +47,14 @@ async function recalcularPedido(items) {
   }
 
   /* Cantidad válida por artículo (1..99) y solo las claves seguras */
-  const pedidos = items
-    .map((it) => ({
-      id: Number(it?.id),
-      qty: Math.min(99, Math.max(1, Math.floor(Number(it?.qty) || 1))),
-      color: it?.color ? String(it.color).slice(0, 60) : null,
-      size: it?.size ? String(it.size).slice(0, 60) : null,
-    }))
-    .filter((it) => Number.isInteger(it.id) && it.id > 0);
-
-  if (pedidos.length === 0) {
+  const pedidos = items.map((it) => ({
+    id: Number(it?.id),
+    qty: Number(it?.qty),
+    color: it?.color ? String(it.color).slice(0, 60) : null,
+    size: it?.size ? String(it.size).slice(0, 60) : null,
+  }));
+  if (pedidos.some((item) => !Number.isInteger(item.id) || item.id <= 0 ||
+      !Number.isInteger(item.qty) || item.qty < 1 || item.qty > 99)) {
     return { error: 'Artículos inválidos en el pedido' };
   }
 
@@ -70,9 +69,9 @@ async function recalcularPedido(items) {
   const itemsFinales = [];
   for (const p of pedidos) {
     const prod = byId.get(p.id);
-    if (!prod) continue; // el producto ya no existe: se omite
+    if (!prod) return { error: 'Uno de los productos del pedido ya no existe' };
     const variante = [p.color, p.size].filter(Boolean).join(' · ');
-    itemsFinales.push({ name: prod.name, variante, qty: p.qty, price: Number(prod.price) });
+    itemsFinales.push({ product_id: p.id, name: prod.name, variante, qty: p.qty, price: Number(prod.price) });
   }
 
   if (itemsFinales.length === 0) {
@@ -128,13 +127,16 @@ const storeOrderController = {
     try {
       const { status } = req.body || {};
       if (!['verificado', 'rechazado'].includes(status)) {
-        return res.status(400).json({ success: false, message: 'Estado de pago inválido.' });
+        return res.status(400).json({ success: false, message: 'Estado de pedido inválido.' });
       }
       const order = await StoreOrder.updateStatus(Number(req.params.id), status);
       if (!order) return res.status(404).json({ success: false, message: 'Pedido no encontrado.' });
       res.json({ success: true, data: order });
     } catch (err) {
       console.error('✗ Error actualizando estado de Pago Móvil:', err.message);
+      if (err instanceof ProductStockError || err.code === 'ORDER_STATUS_CONFLICT') {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: 'No se pudo actualizar el estado.' });
     }
   },
@@ -143,6 +145,7 @@ const storeOrderController = {
     try {
       const { itemsFinales, total, error } = await recalcularPedido(req.body?.items);
       if (error) return res.status(400).json({ success: false, message: error });
+      await assertStockAvailable(itemsFinales);
 
       const user = await cargarUsuario(req.user.id);
       if (!user) {
@@ -150,28 +153,53 @@ const storeOrderController = {
       }
 
       const orderNumber = generateOrderNumber();
-      const mail = await sendOrderInvoice({
-        to: user.email,
-        name: user.name,
-        orderNumber,
+      const order = await StoreOrder.create({
+        order_number: orderNumber,
+        user_id: user.id,
+        customer_name: [user.name, user.last_name].filter(Boolean).join(' '),
+        customer_email: user.email,
+        payment_method: 'Pedido WhatsApp',
+        status: 'pendiente',
         items: itemsFinales,
         total,
+        payment_details: { method: 'Pedido WhatsApp' },
       });
+      let mail;
+      try {
+        mail = await sendOrderInvoice({
+          to: user.email,
+          name: user.name,
+          orderNumber,
+          items: itemsFinales,
+          total,
+        });
+      } catch (mailError) {
+        console.error(`✗ Pedido ${orderNumber} guardado, pero falló el envío de factura:`, mailError.message);
+        mail = { delivered: false, mode: 'error' };
+      }
 
       console.log(
-        `🧾 Pedido ${orderNumber} de ${user.email} — ${itemsFinales.length} artículo(s), total $${total.toFixed(2)} — correo: ${mail.mode}`
+        `🧾 Pedido ${orderNumber} de ${user.email} — ${itemsFinales.length} artículo(s), total $${total.toFixed(2)} — pedido #${order.id} — correo: ${mail.mode}`
       );
 
       res.status(201).json({
         success: true,
-        message: `¡Pedido registrado, ${user.name}! Enviamos la factura a ${user.email}`,
+        message: mail.delivered
+          ? `¡Pedido registrado, ${user.name}! Enviamos la factura a ${user.email}`
+          : `¡Pedido registrado, ${user.name}! No pudimos enviar la factura por correo.`,
         orderNumber,
+        id: order.id,
         total,
+        items: itemsFinales,
         email: user.email,
+        status: order.status,
         invoice: { delivered: mail.delivered, mode: mail.mode },
       });
     } catch (err) {
       console.error('✗ Error registrando el pedido:', err.message);
+      if (err instanceof ProductStockError) {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: 'No se pudo registrar el pedido. Intenta de nuevo.' });
     }
   },
@@ -191,6 +219,7 @@ const storeOrderController = {
       }
       const { itemsFinales, total, error } = await recalcularPedido(rawItems);
       if (error) return res.status(400).json({ success: false, message: error });
+      await assertStockAvailable(itemsFinales);
 
       const user = await cargarUsuario(req.user.id);
       if (!user) {
@@ -270,6 +299,9 @@ const storeOrderController = {
       });
     } catch (err) {
       console.error('✗ Error registrando el pago móvil:', err.message);
+      if (err instanceof ProductStockError) {
+        return res.status(409).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: 'No se pudo registrar el pago. Intenta de nuevo.' });
     }
   },

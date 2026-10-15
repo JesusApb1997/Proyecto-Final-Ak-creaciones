@@ -36,6 +36,7 @@ async function seedProducts() {
         old_price NUMERIC(10, 2) CHECK (old_price IS NULL OR old_price >= 0),
         "desc" TEXT NOT NULL,
         img VARCHAR(255),
+        stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
         tag VARCHAR(20)
           CHECK (tag IS NULL OR tag IN ('nuevo', 'oferta')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { deliveryApi } from '../api/client.js'
 import InternationalPhoneInput, { isValidInternationalPhone } from '../components/InternationalPhoneInput.jsx'
+import ReportToolbar, { useReportFilter } from './ReportTools.jsx'
 
 const STATUS_COLORS = {
   pendiente: 'warning',
@@ -19,6 +20,28 @@ const STATUS_LABELS = {
   cancelado: 'Cancelado',
 }
 
+const DELIVERY_REPORT_FIELDS = [
+  { value: 'name', label: 'Nombre del cliente', getValue: (delivery) => `${delivery.name || ''} ${delivery.last_name || ''}` },
+  { value: 'date', label: 'Fecha', type: 'date', getValue: (delivery) => delivery.created_at },
+]
+
+const DELIVERY_REPORT_COLUMNS = [
+  { label: 'Pedido', getValue: (delivery) => delivery.order_number || `#${delivery.id}` },
+  { label: 'Factura', getValue: (delivery) => delivery.invoice_number || '—' },
+  { label: 'Cliente', getValue: (delivery) => `${delivery.name || ''} ${delivery.last_name || ''}`.trim() },
+  { label: 'Teléfono', getValue: (delivery) => delivery.phone || '—' },
+  { label: 'Dirección', getValue: (delivery) => [delivery.address, delivery.localidad].filter(Boolean).join(' · ') || '—' },
+  { label: 'Total', getValue: (delivery) => `$${Number(delivery.total || 0).toFixed(2)}` },
+  { label: 'Estado', getValue: (delivery) => STATUS_LABELS[delivery.status] || delivery.status || '—' },
+  { label: 'Fecha', getValue: (delivery) => formatReportDate(delivery.created_at) },
+]
+
+function formatReportDate(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('es-VE')
+}
+
 export default function DeliveryView({ showToast, isAdmin }) {
   const [deliveries, setDeliveries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -28,6 +51,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
   const [dispatching, setDispatching] = useState(false)
   const [dispatchError, setDispatchError] = useState('')
   const [whatsappResult, setWhatsappResult] = useState(null)
+  const report = useReportFilter(deliveries, DELIVERY_REPORT_FIELDS)
 
   const load = async () => {
     setLoading(true)
@@ -135,10 +159,15 @@ export default function DeliveryView({ showToast, isAdmin }) {
       {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
 
       {!loading && !error && (
+        <>
+        <ReportToolbar title="Reporte de delivery" fields={DELIVERY_REPORT_FIELDS} columns={DELIVERY_REPORT_COLUMNS} report={report} />
         <div className="dash-table-wrap">
           <table className="dash-table">
             <thead>
               <tr>
+                <th aria-label="Seleccionar deliveries">
+                  <input type="checkbox" aria-label="Seleccionar todos los deliveries mostrados" checked={report.allVisibleSelected} onChange={report.toggleVisible} disabled={!report.filteredRecords.length} />
+                </th>
                 <th>Pedido / factura</th>
                 <th>Cliente</th>
                 <th>Teléfono</th>
@@ -150,15 +179,14 @@ export default function DeliveryView({ showToast, isAdmin }) {
               </tr>
             </thead>
             <tbody>
-              {deliveries.length === 0 ? (
+              {report.filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', color: 'var(--muted)', padding: '2rem' }}>
-                    No hay pedidos de delivery aún
-                  </td>
+                  <td colSpan="9" className="report-empty">{deliveries.length ? 'No hay deliveries que coincidan con la búsqueda.' : 'No hay pedidos de delivery aún.'}</td>
                 </tr>
               ) : (
-                deliveries.map((d) => (
+                report.filteredRecords.map((d) => (
                   <tr key={d.id}>
+                    <td><input type="checkbox" aria-label={`Seleccionar pedido ${d.order_number || d.id}`} checked={report.selectedIds.has(String(d.id))} onChange={() => report.toggleRow(d.id)} /></td>
                     <td>
                       <strong>{d.order_number || `#${d.id}`}</strong>
                       {d.invoice_number && <small style={{ display: 'block', color: 'var(--muted)' }}>{d.invoice_number}</small>}
@@ -195,11 +223,12 @@ export default function DeliveryView({ showToast, isAdmin }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {selected && createPortal(
         <div className="modal admin-modal show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}>
-          <div className="modal-box" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-box admin-edit-modal delivery-edit-modal">
             <button className="btn-icon modal-close" onClick={() => setSelected(null)} aria-label="Cerrar">
               <i className="bi bi-x-lg"></i>
             </button>
@@ -250,8 +279,8 @@ export default function DeliveryView({ showToast, isAdmin }) {
               >
                 <option value="pendiente">Pendiente</option>
                 <option value="en_proceso">En proceso</option>
-                <option value="en_camino">En camino</option>
-                <option value="entregado">Entregado</option>
+                <option value="en_camino" disabled={!selected.stock_deducted_at && selected.status !== 'en_camino'}>En camino (requiere despacho)</option>
+                <option value="entregado" disabled={!selected.stock_deducted_at}>Entregado</option>
                 <option value="cancelado">Cancelado</option>
               </select>
             </div>

@@ -45,7 +45,7 @@ const ProductController = {
   // POST /api/products (solo admin)
   async create(req, res) {
     try {
-      const { name, cat, price, oldPrice, old_price, desc, img, tag, color } = req.body;
+      const { name, cat, price, oldPrice, old_price, desc, img, tag, color, stock = 0 } = req.body;
 
       // Validaciones basicas
       if (!name || price === undefined || !desc) {
@@ -59,6 +59,9 @@ const ProductController = {
           success: false,
           message: '"price" debe ser un numero mayor o igual a 0',
         });
+      }
+      if (!Number.isInteger(Number(stock)) || Number(stock) < 0) {
+        return res.status(400).json({ success: false, message: '"stock" debe ser un entero mayor o igual a 0' });
       }
       const finalCat = cat ? String(cat).toLowerCase() : 'zarcillos';
       if (!CAT_ALLOWED.includes(finalCat)) {
@@ -83,6 +86,7 @@ const ProductController = {
         img: img ? String(img).trim() : null,
         tag: tag ? String(tag).toLowerCase() : null,
         color: color ? String(color).trim() : null,
+        stock: Number(stock),
       });
 
       res.status(201).json({ success: true, data: newProduct });
@@ -94,7 +98,7 @@ const ProductController = {
   // PUT /api/products/:id (solo admin)
   async update(req, res) {
     try {
-      const { name, cat, price, oldPrice, old_price, desc, img, tag, color } = req.body;
+      const { name, cat, price, oldPrice, old_price, desc, img, tag, color, stock } = req.body;
 
       if (price !== undefined && (Number.isNaN(Number(price)) || Number(price) < 0)) {
         return res.status(400).json({
@@ -121,6 +125,9 @@ const ProductController = {
           message: '"oldPrice" debe ser un numero mayor o igual a 0',
         });
       }
+      if (stock !== undefined && (!Number.isInteger(Number(stock)) || Number(stock) < 0)) {
+        return res.status(400).json({ success: false, message: '"stock" debe ser un entero mayor o igual a 0' });
+      }
 
       const updated = await Product.update(req.params.id, {
         name: name !== undefined ? (name === null ? null : String(name).trim()) : undefined,
@@ -131,6 +138,7 @@ const ProductController = {
         img: img !== undefined ? (img === null || img === '' ? null : String(img).trim()) : undefined,
         tag: tag !== undefined ? (tag === null || tag === '' ? null : String(tag).toLowerCase()) : undefined,
         color: color !== undefined ? (color === null || color === '' ? null : String(color).trim()) : undefined,
+        stock: stock !== undefined ? Number(stock) : undefined,
       });
 
       if (!updated) {

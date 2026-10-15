@@ -2,6 +2,8 @@ import { COLORS, COLOR_HEX, money } from '../config.js'
 
 export default function ProductModal({ data, onClose, onColor, onSize, onQty, onAdd }) {
   const p = data.product
+  const stock = Number(p.stock)
+  const available = Number.isInteger(stock) && stock > 0
 
   return (
     <div className="modal product-modal show" role="dialog" aria-modal="true" aria-labelledby="pmTitle" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -17,6 +19,7 @@ export default function ProductModal({ data, onClose, onColor, onSize, onQty, on
           <h3 id="pmTitle">{p.name}</h3>
           <p className="pm-price">{money(p.oldPrice ?? p.price)}</p>
           <p className="pm-desc">{p.desc}</p>
+          <p className="product-stock-label">{available ? `${stock} unidades disponibles` : 'Producto agotado'}</p>
 
           <div className="pm-opt">
             <h4>Gancho (acabado metálico)</h4>
@@ -49,12 +52,12 @@ export default function ProductModal({ data, onClose, onColor, onSize, onQty, on
             <div className="qty">
               <button onClick={() => onQty(data.qty - 1)} aria-label="Menos"><i className="bi bi-dash"></i></button>
               <span>{data.qty}</span>
-              <button onClick={() => onQty(data.qty + 1)} aria-label="Más"><i className="bi bi-plus"></i></button>
+              <button onClick={() => onQty(data.qty + 1)} aria-label="Más" disabled={!available || data.qty >= stock}><i className="bi bi-plus"></i></button>
             </div>
           </div>
 
-          <button className="btn btn-grad btn-block" onClick={onAdd}>
-            <i className="bi bi-bag-plus"></i> Agregar al carrito
+          <button className="btn btn-grad btn-block" onClick={onAdd} disabled={!available}>
+            <i className={`bi ${available ? 'bi-bag-plus' : 'bi-bag-x'}`}></i> {available ? 'Agregar al carrito' : 'Agotado'}
           </button>
         </div>
       </div>

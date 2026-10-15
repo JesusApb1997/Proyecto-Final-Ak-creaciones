@@ -316,10 +316,12 @@ button{ font-family:inherit; cursor:pointer; }
   transition:opacity .3s var(--ease), transform .3s var(--ease);
 }
 .card:hover .card-quick{ opacity:1; transform:translateY(0); }
+.card-quick:disabled,.add-btn:disabled{ cursor:not-allowed; opacity:.55; filter:grayscale(.7); }
 .card-body{ padding:1rem 1.1rem 1.2rem; display:flex; flex:1; flex-direction:column; }
 .card-cat{ font-size:.72rem; text-transform:uppercase; letter-spacing:.14em; color:var(--turq); font-weight:600; margin:0 0 .25rem; }
 .card-title{ font-family:'Playfair Display',serif; font-size:1.12rem; margin:0 0 .2rem; }
 .card-desc{ color:var(--muted); font-size:.83rem; line-height:1.5; height:4.5em; overflow-y:auto; scrollbar-gutter:stable; margin:0 0 .7rem; }
+.product-stock-label{ display:block; margin:.15rem 0 .45rem; color:var(--muted); font-size:.78rem; }
 .card-row{ display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin-top:auto; }
 .price{ font-weight:700; font-size:1.05rem; }
 .price-old{ color:var(--muted); text-decoration:line-through; font-size:.8rem; font-weight:400; margin-right:.4rem; }
@@ -515,7 +517,8 @@ button{ font-family:inherit; cursor:pointer; }
 }
 
 .modal{
-  position:fixed; inset:0; z-index:90; display:grid; place-items:center; padding:1rem;
+  position:fixed !important; inset:0 !important; top:0; left:0; right:0; bottom:0;
+  z-index:90; display:grid; place-items:center; padding:1rem;
   background:rgba(20,12,28,.55); backdrop-filter:blur(4px);
   opacity:0; transition:opacity .25s;
 }

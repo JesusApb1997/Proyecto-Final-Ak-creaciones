@@ -135,6 +135,18 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) 
     loadProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (!document.hidden) loadProducts()
+    }
+    window.addEventListener('focus', refreshWhenVisible)
+    const interval = window.setInterval(refreshWhenVisible, 60000)
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible)
+      window.clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ---------- Filtros y búsqueda ---------- */
   const filtered = useMemo(() => {
@@ -159,16 +171,28 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) 
 
   /* ---------- Carrito ---------- */
   const addToCart = (p, color = 'Dorado', size = null, qty = 1) => {
-    if (!p) return
+    if (!p || !Number.isInteger(qty) || qty < 1) return false
+    const stock = Number(p.stock)
+    const alreadyInCart = cart.filter((item) => Number(item.id) === Number(p.id)).reduce((sum, item) => sum + Number(item.qty || 0), 0)
+    if (!Number.isInteger(stock) || stock <= 0) {
+      toast(`${p.name} está agotado`)
+      return false
+    }
+    if (alreadyInCart + qty > stock) {
+      toast(`Solo hay ${Math.max(0, stock - alreadyInCart)} unidades disponibles de ${p.name}`)
+      return false
+    }
     const key = `${p.id}|${color}|${size ?? 'std'}`
+    const found = cart.find((i) => i.key === key)
     setCart((prev) => {
-      const found = prev.find((i) => i.key === key)
-      if (found) {
-        return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + qty } : i))
-      }
+      const productQty = prev.filter((item) => Number(item.id) === Number(p.id)).reduce((sum, item) => sum + Number(item.qty || 0), 0)
+      if (productQty + qty > stock) return prev
+      const existing = prev.find((item) => item.key === key)
+      if (existing) return prev.map((item) => item.key === key ? { ...item, qty: item.qty + qty } : item)
       return [...prev, { key, id: p.id, name: p.name, img: p.img, price: p.price, color, size, qty }]
     })
     toast(`✓ ${p.name} agregado al carrito`)
+    return true
   }
 
   const removeFromCart = (key) => {
@@ -424,10 +448,11 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) 
           onClose={() => setProductModal(null)}
           onColor={(color) => setProductModal((s) => ({ ...s, color }))}
           onSize={(size) => setProductModal((s) => ({ ...s, size }))}
-          onQty={(qty) => setProductModal((s) => ({ ...s, qty: Math.min(99, Math.max(1, qty)) }))}
+          onQty={(qty) => setProductModal((s) => ({ ...s, qty: Math.min(Number(s.product.stock) || 1, Math.max(1, qty)) }))}
           onAdd={() => {
-            addToCart(productModal.product, productModal.color, productModal.size, productModal.qty)
-            setProductModal(null)
+           if (addToCart(productModal.product, productModal.color, productModal.size, productModal.qty)) {
+             setProductModal(null)
+           }
           }}
         />
       )}

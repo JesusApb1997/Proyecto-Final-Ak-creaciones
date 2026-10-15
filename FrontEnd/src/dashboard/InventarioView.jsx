@@ -124,15 +124,15 @@ function MaterialFormModal({ material, onClose, onSaved }) {
   return createPortal(
     <div className="modal admin-modal unav-modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box">
+      <div className="modal-box admin-edit-modal inventory-edit-modal">
         <button className="btn-icon modal-close" onClick={onClose} aria-label="Cerrar">
           <i className="bi bi-x-lg"></i>
         </button>
         <p className="kicker">Inventario</p>
         <h3>{isEdit ? `Editar: ${material.nombre}` : 'Nuevo material'}</h3>
 
-        <form className="product-form" onSubmit={submit}>
-          <div className="ff">
+        <form className="product-form modal-edit-grid" onSubmit={submit}>
+          <div className="ff inventory-edit-name">
             <label>Nombre del material</label>
             <input required value={form.nombre} onChange={set('nombre')} placeholder="Ej: Soutache vino" />
           </div>
@@ -168,13 +168,13 @@ function MaterialFormModal({ material, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="ff">
+          <div className="ff inventory-edit-notes">
             <label>Notas (opcional)</label>
             <textarea rows="2" value={form.notas} onChange={set('notas')}
               placeholder="Ej: proveedor nuevo, ancho 3mm…" />
           </div>
 
-          <div className="ff">
+          <div className="ff inventory-edit-image">
             <label>Imagen</label>
             <div className="ff-img-preview">
               {form.img && <img src={form.img} alt="Vista previa" onError={(e) => { e.currentTarget.style.opacity = 0.25 }} />}

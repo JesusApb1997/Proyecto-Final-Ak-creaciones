@@ -140,39 +140,6 @@ export default function StoreLoginPage({ onSuccess }) {
               : 'Crea tu cuenta con tu correo y una contraseña propia'}
         </p>
 
-        {/* ===== Botones sociales =====
-            Solo se dibuja el proveedor que tenga credenciales configuradas:
-            Google necesita VITE_GOOGLE_CLIENT_ID y Apple VITE_APPLE_CLIENT_ID. */}
-        {hasSocial && (
-          <div className="store-social">
-            {socialConfig.googleEnabled && (
-              <button
-                type="button"
-                className="store-social-btn google"
-                onClick={loginWithGoogle}
-                disabled={loading || !!social}
-              >
-                <GoogleLogo />
-                {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
-              </button>
-            )}
-
-            {socialConfig.appleEnabled && (
-              <button
-                type="button"
-                className="store-social-btn apple"
-                onClick={loginWithApple}
-                disabled={loading || !!social}
-              >
-                <AppleLogo />
-                {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
-              </button>
-            )}
-          </div>
-        )}
-
-        {hasSocial && <div className="store-divider">o con tu correo</div>}
-
         {/* ===== Formulario email ===== */}
         <form className="store-form" onSubmit={submitEmail}>
           {!isLogin && (
@@ -283,6 +250,39 @@ export default function StoreLoginPage({ onSuccess }) {
             )}
           </button>
         </form>
+
+        {hasSocial && (
+          <>
+            <div className="store-divider">
+              {isLogin ? 'o continúa con' : 'o regístrate también con'}
+            </div>
+            <div className="store-social">
+              {socialConfig.googleEnabled && (
+                <button
+                  type="button"
+                  className="store-social-btn google"
+                  onClick={loginWithGoogle}
+                  disabled={loading || !!social}
+                >
+                  <GoogleLogo />
+                  {social === 'google' ? <span className="store-spinner"></span> : 'Continuar con Google'}
+                </button>
+              )}
+
+              {socialConfig.appleEnabled && (
+                <button
+                  type="button"
+                  className="store-social-btn apple"
+                  onClick={loginWithApple}
+                  disabled={loading || !!social}
+                >
+                  <AppleLogo />
+                  {social === 'apple' ? <span className="store-spinner"></span> : 'Continuar con Apple'}
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         <p className="store-switch">
           {isLogin ? (

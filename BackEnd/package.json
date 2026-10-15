@@ -15,6 +15,7 @@
     "migrate:customers": "node src/scripts/migrate-customers.js",
     "migrate:delivery": "node src/scripts/migrate-delivery.js",
     "migrate:store-orders": "node src/scripts/migrate-store-orders.js",
+    "migrate:product-stock": "node src/scripts/migrate-product-stock.js",
     "migrate:payment-settings": "node src/scripts/migrate-payment-settings.js",
     "migrate:inventario": "node src/scripts/migrate-inventario.js",
     "seed:inventario": "node src/scripts/seed-inventario.js",

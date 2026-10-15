@@ -50,6 +50,12 @@ async function migrateDelivery() {
     await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS location_confirmed BOOLEAN NOT NULL DEFAULT false');
     await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS whatsapp_status VARCHAR(24) NOT NULL DEFAULT \'pendiente\'');
     await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS whatsapp_sent_at TIMESTAMPTZ');
+    await pool.query('ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS stock_deducted_at TIMESTAMPTZ');
+    await pool.query(`
+      UPDATE "Delivery"
+      SET stock_deducted_at = COALESCE(updated_at, created_at, NOW())
+      WHERE stock_deducted_at IS NULL AND status IN ('en_camino', 'entregado')
+    `);
 
     /* Estado controlado por la app (coincide con los pills del dashboard) */
     await pool.query(`

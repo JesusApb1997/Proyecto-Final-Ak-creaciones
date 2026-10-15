@@ -5,7 +5,7 @@
 const pool = require('../config/db');
 
 /* Columnas que el cliente puede enviar en POST/PUT */
-const EDITABLE_COLS = ['name', 'cat', 'price', 'old_price', 'desc', 'img', 'tag', 'color'];
+const EDITABLE_COLS = ['name', 'cat', 'price', 'old_price', 'desc', 'img', 'tag', 'color', 'stock'];
 
 /* Convierte claves camelCase del frontend a snake_case de la BD */
 const toDbKey = (k) => (k === 'oldPrice' ? 'old_price' : k);
@@ -36,12 +36,12 @@ const Product = {
   },
 
   // Crear un nuevo producto
-  async create({ name, cat, price, oldPrice, desc, img, tag, color }) {
+  async create({ name, cat, price, oldPrice, desc, img, tag, color, stock }) {
     const result = await pool.query(
-      `INSERT INTO products (name, cat, price, old_price, "desc", img, tag, color)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO products (name, cat, price, old_price, "desc", img, tag, color, stock)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [name, cat, price, oldPrice ?? null, desc, img, tag ?? null, color ?? null]
+      [name, cat, price, oldPrice ?? null, desc, img, tag ?? null, color ?? null, stock ?? 0]
     );
     return result.rows[0];
   },

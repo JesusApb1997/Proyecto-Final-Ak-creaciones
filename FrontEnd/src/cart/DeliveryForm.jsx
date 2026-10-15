@@ -58,16 +58,16 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
       }
       const response = await deliveryApi.create(payload, cliente.token)
       const order = response?.data?.data
-      const lines = items.map((item) => {
-        const variant = [item.color, item.size].filter(Boolean).join(' · ')
-        return `• ${item.name}${variant ? ` (${variant})` : ''} ×${item.qty} — ${money(item.price * item.qty)}`
+      const lines = (order?.items || items).map((item) => {
+        const variant = item.variante || [item.color, item.size].filter(Boolean).join(' · ')
+        return `• ${item.name}${variant ? ` (${variant})` : ''} ×${item.qty} — ${money(Number(item.price) * Number(item.qty))}`
       })
       const message = [
         'Hola AK Creaciones, envié una solicitud de delivery y quiero coordinar el pago.',
         `Pedido: ${order?.order_number || `#${order?.id || ''}`}`,
         `Factura: ${order?.invoice_number || 'Pendiente'}`,
         ...lines,
-        `Total: ${money(total)}`,
+        `Total: ${money(Number(order?.total ?? total))}`,
         `Entrega: ${form.address || form.maps_url}`,
       ].join('\n')
       setSubmitted({ ...order, whatsappUrl: `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}` })
@@ -92,7 +92,7 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
         {submitted ? (
           <div className="product-form">
             <p className="pm-status"><i className="bi bi-check-circle"></i> Pedido {submitted.order_number} guardado en el dashboard.</p>
-            <p className="admin-note">Factura: <strong>{submitted.invoice_number}</strong> · Total: <strong>{money(total)}</strong></p>
+            <p className="admin-note">Factura: <strong>{submitted.invoice_number}</strong> · Total: <strong>{money(Number(submitted.total ?? total))}</strong></p>
             <a className="btn btn-grad btn-block" href={submitted.whatsappUrl} target="_blank" rel="noopener noreferrer">
               <i className="bi bi-whatsapp"></i> Contactar para coordinar el pago
             </a>

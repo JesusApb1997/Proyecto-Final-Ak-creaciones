@@ -36,43 +36,41 @@ export default function CartPanel({ open, items, total, onClose, onRemove, onPai
 
     if (!items.length) return // carrito vacío: no abrimos WhatsApp
 
-    // 2) Armar el mensaje con el formato: • Nombre (variante) xCantidad - $precio
-    const lineas = items.map((i) => {
-      const variante = [i.color, i.size].filter(Boolean).join(' · ')
-      return `• ${i.name}${variante ? ` (${variante})` : ''} x${i.qty} - ${money(i.price)}`
-    })
-    const mensaje = [
-      '¡Hola! Quisiera realizar el siguiente pedido:',
-      '',
-      ...lineas,
-      '',
-      `*Total a pagar:* ${money(total)}`,
-    ].join('\n')
-
-    // 3) Abrir WhatsApp en una pestaña nueva con el mensaje codificado
-    const phone = WHATSAPP_PEDIDO.replace(/\D/g, '') // wa.me acepta solo dígitos
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(mensaje)}`, '_blank')
-
-    /* 4) Registrar el pedido en el backend con el token del cliente:
-          verifica la identidad, recalcula el total en el servidor y envía a su
-          correo la factura estilizada con el monto y el detalle del pedido. */
     if (activeSession?.token) {
+      const whatsappWindow = window.open('about:blank', '_blank')
       setSending(true)
       try {
         const res = await storeOrdersApi.create(
           items.map((i) => ({ id: i.id, qty: i.qty, color: i.color, size: i.size })),
           activeSession.token
         )
-        toast?.(
-          `🧾 Pedido ${res?.orderNumber ?? ''} registrado — la factura llegó a ${res?.email ?? 'tu correo'}`
+        const orderItems = Array.isArray(res?.items) ? res.items : []
+        const lineas = orderItems.map((item) =>
+          `• ${item.name}${item.variante ? ` (${item.variante})` : ''} x${item.qty} - ${money(item.price)}`
         )
+        const mensaje = [
+          '¡Hola! Quisiera realizar el siguiente pedido:',
+          '',
+          ...lineas,
+          '',
+          `*Total a pagar:* ${money(res.total)}`,
+          `Pedido: ${res.orderNumber}`,
+        ].join('\n')
+        const phone = WHATSAPP_PEDIDO.replace(/\D/g, '')
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensaje)}`
+        if (whatsappWindow) whatsappWindow.location.href = whatsappUrl
+        const orderToast = res?.invoice?.delivered
+          ? `🧾 Pedido ${res?.orderNumber ?? ''} guardado, pendiente de confirmación. Factura: ${res?.email ?? 'correo registrado'}`
+          : `🧾 Pedido ${res?.orderNumber ?? ''} guardado, pendiente de confirmación; no se pudo entregar la factura por correo.`
+        toast?.(`${orderToast}${whatsappWindow ? '' : ' El navegador bloqueó la ventana de WhatsApp.'}`)
       } catch (err) {
-        /* Sin sesión válida o error de red: el pedido por WhatsApp ya salió,
-           así que solo avisamos que la factura no pudo enviarse. */
-        toast?.('✓ WhatsApp abierto — pero no pudimos enviar la factura: ' + (err?.message || 'inicia sesión'))
+        whatsappWindow?.close()
+        toast?.('No se registró el pedido y no se abrió WhatsApp: ' + (err?.message || 'inicia sesión'))
       } finally {
         setSending(false)
       }
+    } else {
+      location.hash = '#/acceder'
     }
   }
 
@@ -169,8 +167,8 @@ export default function CartPanel({ open, items, total, onClose, onRemove, onPai
                 <i className="bi bi-credit-card-2-front"></i> Pagar por Pago Móvil
               </button>
 
-              <button className="btn btn-grad" onClick={handleCheckout} disabled={!items.length}>
-                <i className="bi bi-whatsapp"></i> Continuar por WhatsApp
+              <button className="btn btn-grad" onClick={() => (location.hash = '#/acceder')} disabled={!items.length}>
+                <i className="bi bi-person-check"></i> Inicia sesión para realizar el pedido
               </button>
               <p className="cart-note">
                 <i className="bi bi-person"></i>{' '}

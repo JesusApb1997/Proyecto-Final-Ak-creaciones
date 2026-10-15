@@ -3,6 +3,7 @@
  * Contiene todas las consultas SQL a la tabla "Delivery"
  */
 const pool = require('../config/db');
+const { deductStock } = require('../services/productStock');
 
 /* Columnas editables */
 const EDITABLE_COLS = ['name', 'last_name', 'phone', 'address', 'localidad', 'maps_url', 'items', 'total', 'status', 'notes', 'user_id'];
@@ -59,15 +60,44 @@ const Delivery = {
   },
 
   async assignDriver(id, { driver_name, driver_phone, location_confirmed }) {
-    const result = await pool.query(
-      `UPDATE "Delivery"
-       SET driver_name = $1, driver_phone = $2, location_confirmed = $3,
-           status = 'en_camino', whatsapp_status = 'pendiente', updated_at = NOW()
-       WHERE id = $4
-       RETURNING *`,
-      [driver_name, driver_phone, location_confirmed, id]
-    );
-    return result.rows[0];
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        'SELECT id, items, status, stock_deducted_at FROM "Delivery" WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      const delivery = rows[0];
+      if (!delivery) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      if (delivery.status === 'cancelado') {
+        const error = new Error('No se puede despachar un delivery cancelado.');
+        error.code = 'DELIVERY_STATUS_CONFLICT';
+        throw error;
+      }
+      if (!delivery.stock_deducted_at) {
+        const items = Array.isArray(delivery.items) ? delivery.items : [];
+        await deductStock(client, items);
+      }
+      const result = await client.query(
+        `UPDATE "Delivery"
+         SET driver_name = $1, driver_phone = $2, location_confirmed = $3,
+             status = 'en_camino', whatsapp_status = 'pendiente',
+             stock_deducted_at = COALESCE(stock_deducted_at, NOW()), updated_at = NOW()
+         WHERE id = $4
+         RETURNING *`,
+        [driver_name, driver_phone, location_confirmed, id]
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 
   async setWhatsAppStatus(id, status, sentAt = null) {
@@ -108,11 +138,34 @@ const Delivery = {
 
   // Actualizar estado del pedido
   async updateStatus(id, status) {
-    const result = await pool.query(
-      'UPDATE "Delivery" SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [status, id]
-    );
-    return result.rows[0];
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        'SELECT status, stock_deducted_at FROM "Delivery" WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      if (!rows[0]) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      if (['en_camino', 'entregado'].includes(status) && !rows[0].stock_deducted_at) {
+        const error = new Error('Despacha el pedido y asigna un conductor antes de marcarlo en camino o entregado.');
+        error.code = 'DELIVERY_STATUS_CONFLICT';
+        throw error;
+      }
+      const result = await client.query(
+        'UPDATE "Delivery" SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [status, id]
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 };
 
