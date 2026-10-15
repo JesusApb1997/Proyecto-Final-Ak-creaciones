@@ -10,6 +10,16 @@ Al pulsar **Verificar, asignar y avisar al cliente**, el backend envía el pedid
 4. Configura `WHATSAPP_DEFAULT_COUNTRY_CODE` en `BackEnd/.env` si los teléfonos de los pedidos usan otro país (por defecto, Venezuela `58`).
 5. El backend busca Chrome/Edge del sistema y luego el Chromium de Puppeteer. Si tu navegador está en una ruta no estándar, configura `PUPPETEER_EXECUTABLE_PATH` con la ruta completa al ejecutable, por ejemplo `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe` en Windows.
 
+### Si no aparece el QR después de desvincular el teléfono
+
+El QR se imprime en la terminal del **BackEnd**, no en la del FrontEnd. Solo un proceso de BackEnd puede usar la sesión `ak-creaciones` a la vez. Si aparece un error indicando que el navegador ya está abierto o que el `userDataDir` está en uso:
+
+1. Detén los procesos anteriores del BackEnd y cierra la ventana de Chrome/Web WhatsApp que hayan dejado abierta.
+2. Inicia el BackEnd de nuevo y espera el evento del QR.
+3. Si el teléfono ya revocó la sesión y aun así no se genera QR, detén BackEnd y Chrome primero y elimina únicamente `BackEnd/.wwebjs_auth/session-ak-creaciones`. Al iniciar de nuevo, se creará una sesión nueva y se imprimirá otro QR.
+
+No elimines esa carpeta mientras Chrome o BackEnd sigan abiertos: contiene la sesión local autenticada.
+
 WhatsApp Web no es la API oficial de Meta y puede desconectarse o limitar la cuenta si se automatiza en exceso. No borres ni publiques `.wwebjs_auth`: contiene credenciales de la sesión. Para hosting efímero/serverless, usa Cloud API.
 
 ## Configuración

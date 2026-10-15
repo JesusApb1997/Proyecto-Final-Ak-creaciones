@@ -93,7 +93,7 @@ function initializeWhatsAppClient() {
   }
 
   console.log(`🌐 Navegador para WhatsApp Web: ${browserExecutable}`)
-  webClient = new Client({
+  const client = new Client({
     authStrategy: new LocalAuth({
       clientId: 'ak-creaciones',
       dataPath: path.join(__dirname, '..', '..', '.wwebjs_auth'),
@@ -104,26 +104,35 @@ function initializeWhatsAppClient() {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     },
   })
+  webClient = client
 
-  webClient.on('qr', (qr) => {
+  client.on('qr', (qr) => {
     console.log('\n📱 Escanea este QR desde WhatsApp > Dispositivos vinculados:')
     qrcode.generate(qr, { small: true })
   })
-  webClient.on('authenticated', () => console.log('✓ Sesión de WhatsApp Web autenticada'))
-  webClient.on('ready', () => {
+  client.on('authenticated', () => console.log('✓ Sesión de WhatsApp Web autenticada'))
+  client.on('ready', () => {
     webClientReady = true
     console.log('✓ WhatsApp Web listo para enviar avisos de delivery')
   })
-  webClient.on('auth_failure', (message) => {
+  client.on('auth_failure', (message) => {
     webClientReady = false
     console.error('✗ Falló la autenticación de WhatsApp Web:', message)
   })
-  webClient.on('disconnected', (reason) => {
+  client.on('disconnected', (reason) => {
     webClientReady = false
     console.warn('⚠ WhatsApp Web se desconectó:', reason)
   })
-  webClient.initialize().catch((err) => {
+  client.initialize().catch((err) => {
+    webClientReady = false
+    if (webClient === client) webClient = null
     console.error('✗ No se pudo iniciar WhatsApp Web:', err.message)
+    if (/already running|userDataDir/i.test(err.message)) {
+      console.error(
+        'Cierra el otro proceso de BackEnd/Chrome que usa la sesión de WhatsApp y vuelve a iniciar el BackEnd. ' +
+        'No borres .wwebjs_auth mientras Chrome siga abierto.'
+      )
+    }
   })
 }
 
