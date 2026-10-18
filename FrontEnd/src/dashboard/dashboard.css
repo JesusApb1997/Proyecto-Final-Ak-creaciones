@@ -784,6 +784,7 @@ html[data-theme="dark"] .dash-pill.no-pass{
 }
 .report-export-pdf{ color:#D64560; }
 .report-export-word{ color:#2674C8; }
+.report-export-excel{ color:#5482F5; }
 .report-export-actions .btn-icon:disabled{ opacity:.4; cursor:not-allowed; }
 .report-clear-selection{
   border:0;

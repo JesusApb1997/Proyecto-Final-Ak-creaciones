@@ -73,6 +73,7 @@ export const deliveryApi = {
   update: (id, body) => api.put(`/delivery/${id}`, body),
   updateStatus: (id, status) => api.patch(`/delivery/${id}/status`, { status }),
   dispatch: (id, body) => api.patch(`/delivery/${id}/dispatch`, body),
+  finalizeSale: (id) => api.patch(`/delivery/${id}/finalize`),
   remove: (id) => api.delete(`/delivery/${id}`),
 }
 

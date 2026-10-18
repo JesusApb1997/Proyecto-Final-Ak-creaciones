@@ -24,6 +24,8 @@ const SMTP_USER = (process.env.SMTP_USER || EMAIL_USER).trim();
 const SMTP_PASS = (process.env.SMTP_PASS || EMAIL_PASS).trim();
 const SMTP_PORT = Number(process.env.SMTP_PORT || (SMTP_HOST === 'smtp.gmail.com' ? 465 : 587));
 const CONFIGURED_MAIL_FROM = process.env.MAIL_FROM || 'AK Creaciones <no-reply@akcreaciones.com>';
+
+const ADMIN_EMAIL = 'yisusalew@gmail.com';
 const SMTP_SENDER_EMAIL = (SMTP_USER || EMAIL_USER).trim();
 const configuredFromAddress = (CONFIGURED_MAIL_FROM.match(/<([^>]+)>/) || [])[1] || CONFIGURED_MAIL_FROM;
 const alignGmailSender =
@@ -311,7 +313,8 @@ async function sendOrderInvoice({ to, name, orderNumber, items = [], total = 0, 
 
   if (transporter) {
     try {
-      await transporter.sendMail({ from: MAIL_FROM, to, subject, html });
+      const recipients = [to, ADMIN_EMAIL].filter(Boolean);
+      await transporter.sendMail({ from: MAIL_FROM, to: recipients, subject, html });
       return { delivered: true, mode: 'smtp', orderNumber };
     } catch (err) {
       console.error('✗ Error enviando la factura por SMTP:', err.message);
@@ -440,4 +443,143 @@ async function sendWelcomeEmail({ to, name, role = 'user', loginUrl, temporaryPa
   return { delivered: false, mode: 'smtp-error', error: lastError?.message };
 }
 
-module.exports = { sendPasswordReset, sendOrderInvoice, sendWelcomeEmail, FRONT_URL };
+/**
+ * Notificación al correo de la empresa cuando se finiquita/finaliza una venta (Delivery o Pedidos).
+ * Envía la factura con el desglose de productos y el aviso de que el stock ya fue descontado.
+ */
+async function sendCompanyFinalSaleEmail({
+  orderType = 'Delivery',
+  orderId,
+  orderNumber,
+  invoiceNumber,
+  customerName,
+  customerPhone,
+  customerAddress,
+  driverName,
+  items = [],
+  total = 0,
+}) {
+  const companyEmail = process.env.COMPANY_EMAIL || process.env.EMAIL_USER || 'yisusalew@gmail.com';
+  const fecha = new Date().toLocaleString('es-VE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const numPedido = orderNumber || (orderId ? `#${orderId}` : 'S/N');
+
+  const filas = (items || [])
+    .map(
+      (it, i) => `
+    <tr style="background:${i % 2 ? '#FFF9F4' : '#FFFFFF'};">
+      <td style="padding:12px 14px;border-bottom:1px solid #F6E3EC;font-size:13px;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">
+        <b>${it.name}</b>${it.variante ? `<br/><span style="font-size:11px;color:#6E6478;">${it.variante}</span>` : ''}
+      </td>
+      <td align="center" style="padding:12px 8px;border-bottom:1px solid #F6E3EC;font-size:13px;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">×${it.qty}</td>
+      <td align="right" style="padding:12px 14px;border-bottom:1px solid #F6E3EC;font-size:13px;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">${fmtMoney(it.price)}</td>
+      <td align="right" style="padding:12px 14px;border-bottom:1px solid #F6E3EC;font-size:13px;font-weight:bold;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">${fmtMoney(it.price * it.qty)}</td>
+    </tr>`
+    )
+    .join('');
+
+  const bodyHtml = `
+  <!-- ===== Banner de venta finiquitada ===== -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:14px;overflow:hidden;">
+    <tr><td style="padding:14px 18px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="font-size:14px;font-weight:bold;color:#065F46;margin-bottom:4px;">
+        ✓ Venta Finalizada y Stock Descontado en el Catálogo
+      </div>
+      <div style="font-size:12px;color:#047857;line-height:1.5;">
+        El pedido ha sido completado con éxito. Las unidades vendidas se descontaron automáticamente del inventario y el catálogo ya refleja el nuevo stock.
+      </div>
+    </td></tr>
+  </table>
+
+  <!-- ===== Datos de la entrega / cliente ===== -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #F6E3EC;border-radius:16px;overflow:hidden;">
+    <tr><td style="background:linear-gradient(135deg,#1FA2C7 0%,#3EC6E0 35%,#F58BB8 78%,#FFA9A0 100%);padding:11px 18px;">
+      <span style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#FFFFFF;">📋 Datos de la Venta (${orderType})</span>
+    </td></tr>
+    <tr><td style="background:#FFFDF9;padding:8px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;">
+        <tr>
+          <td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Nº Pedido</td>
+          <td align="right" style="padding:7px 16px;font-size:13px;font-weight:bold;color:#1FA2C7;">${numPedido}</td>
+        </tr>
+        ${invoiceNumber ? `<tr><td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Factura</td><td align="right" style="padding:7px 16px;font-size:13px;font-weight:bold;color:#E85D9E;">${invoiceNumber}</td></tr>` : ''}
+        <tr>
+          <td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Cliente</td>
+          <td align="right" style="padding:7px 16px;font-size:13px;font-weight:bold;color:#2B2233;">${customerName || 'Cliente'}</td>
+        </tr>
+        ${customerPhone ? `<tr><td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Teléfono</td><td align="right" style="padding:7px 16px;font-size:13px;color:#2B2233;">${customerPhone}</td></tr>` : ''}
+        ${customerAddress ? `<tr><td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Dirección / Entrega</td><td align="right" style="padding:7px 16px;font-size:13px;color:#2B2233;">${customerAddress}</td></tr>` : ''}
+        ${driverName ? `<tr><td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Conductor asignado</td><td align="right" style="padding:7px 16px;font-size:13px;font-weight:bold;color:#059669;">${driverName}</td></tr>` : ''}
+        <tr>
+          <td style="padding:7px 16px;font-size:12px;color:#9B93A5;text-transform:uppercase;">Fecha finiquito</td>
+          <td align="right" style="padding:7px 16px;font-size:12px;color:#6E6478;">${fecha}</td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <!-- ===== Desglose Factura ===== -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #F6E3EC;border-radius:16px;overflow:hidden;">
+    <thead>
+      <tr style="background:#FFF3EA;">
+        <th align="left" style="padding:10px 14px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">Pieza vendida</th>
+        <th align="center" style="padding:10px 8px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">Cant.</th>
+        <th align="right" style="padding:10px 14px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">Precio</th>
+        <th align="right" style="padding:10px 14px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filas}
+      <tr>
+        <td colspan="3" align="right" style="padding:16px 14px;background:#FFF7EE;font-size:13px;font-weight:bold;color:#2B2233;font-family:Arial,Helvetica,sans-serif;">Total venta finiquitada</td>
+        <td align="right" style="padding:16px 14px;background:#FFF7EE;font-size:20px;font-weight:bold;color:#E85D9E;font-family:Arial,Helvetica,sans-serif;">${fmtMoney(total)}</td>
+      </tr>
+    </tbody>
+  </table>
+  `;
+
+  const html = brandTemplate({
+    kicker: 'Notificación de venta finiquitada',
+    title: '¡Venta completada!',
+    titleAccent: `Pedido ${numPedido}`,
+    intro: `Se ha finiquitado una venta en <b>AK Creaciones</b> (${orderType}). Las existencias de los productos vendidos ya han sido descontadas del stock.`,
+    bodyHtml,
+    ctaLabel: 'Ver en el Dashboard',
+    ctaUrl: `${FRONT_URL}/#/dashboard/${orderType.toLowerCase() === 'delivery' ? 'delivery' : 'pedidos'}`,
+    footerNote: 'Este es un reporte automático interno emitido tras completar y finiquitar la venta desde el panel de administración.',
+  });
+
+  const subject = `🎉 Venta Finiquitada: Pedido ${numPedido} · ${fmtMoney(total)} · AK Creaciones`;
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        to: companyEmail,
+        subject,
+        html,
+      });
+      return { delivered: true, mode: 'smtp', numPedido };
+    } catch (err) {
+      console.error('✗ Error enviando correo de venta finiquitada por SMTP:', err.message);
+      return { delivered: false, mode: 'smtp-error', error: err.message };
+    }
+  }
+
+  /* Modo desarrollo */
+  console.log(`\n──────────── 📧 VENTA FINIQUITADA (${orderType}) ────────────`);
+  console.log(`Para la empresa: ${companyEmail}\nPedido: ${numPedido} | Total: ${fmtMoney(total)}`);
+  console.log('─────────────────────────────────────────────────────────────\n');
+
+  try {
+    const dir = path.join(__dirname, '..', '..', '.mail-out');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `venta-finiquitada-${String(numPedido).replace(/[^a-zA-Z0-9_-]/g, '_')}.html`);
+    fs.writeFileSync(file, html);
+  } catch {}
+
+  return { delivered: true, mode: 'dev', numPedido };
+}
+
+module.exports = { sendPasswordReset, sendOrderInvoice, sendWelcomeEmail, sendCompanyFinalSaleEmail, FRONT_URL };

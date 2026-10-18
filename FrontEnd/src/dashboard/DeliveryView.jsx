@@ -51,6 +51,7 @@ export default function DeliveryView({ showToast, isAdmin }) {
   const [dispatching, setDispatching] = useState(false)
   const [dispatchError, setDispatchError] = useState('')
   const [whatsappResult, setWhatsappResult] = useState(null)
+  const [finalizing, setFinalizing] = useState(false)
   const report = useReportFilter(deliveries, DELIVERY_REPORT_FIELDS)
 
   const load = async () => {
@@ -125,6 +126,26 @@ export default function DeliveryView({ showToast, isAdmin }) {
       setSelected(null)
     } catch (err) {
       showToast('✗ ' + (err?.message || 'No se pudo eliminar'))
+    }
+  }
+
+  const handleFinalizeSale = async (delivery) => {
+    if (!delivery || finalizing) return
+    if (!window.confirm(`¿Confirmar y finiquitar la venta del pedido #${delivery.id}? Se descontará el stock de los productos vendidos y se enviará la factura al correo de la empresa.`)) {
+      return
+    }
+    setFinalizing(true)
+    try {
+      const { data } = await deliveryApi.finalizeSale(delivery.id)
+      const updated = data.data
+      setSelected(updated)
+      setDeliveries((current) => current.map((item) => (item.id === delivery.id ? updated : item)))
+      showToast(data.message || '✓ Venta finiquitada: stock descontado y factura enviada')
+      window.dispatchEvent(new CustomEvent('ak-products-changed'))
+    } catch (err) {
+      showToast('✗ ' + (err?.message || 'No se pudo finiquitar la venta'))
+    } finally {
+      setFinalizing(false)
     }
   }
 
@@ -376,10 +397,58 @@ export default function DeliveryView({ showToast, isAdmin }) {
               {selected.updated_at && <> • Actualizado: {formatDate(selected.updated_at)}</>}
             </div>
 
-            {isAdmin && (
-              <button className="btn btn-danger btn-block" onClick={() => remove(selected)} style={{ background: '#dc3545', color: 'white', border: 'none' }}>
-                <i className="bi bi-trash3"></i> Eliminar pedido
-              </button>
+            {selected.status === 'entregado' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '.5rem',
+                    padding: '.75rem',
+                    borderRadius: '8px',
+                    background: 'rgba(34, 197, 94, .12)',
+                    color: '#16a34a',
+                    fontWeight: 600,
+                    fontSize: '.9rem',
+                    border: '1px solid rgba(34, 197, 94, .3)',
+                  }}
+                >
+                  <i className="bi bi-check-circle-fill"></i> Venta finiquitada · Stock descontado
+                </div>
+                {isAdmin && (
+                  <button
+                    className="btn btn-ghost btn-block"
+                    onClick={() => remove(selected)}
+                    style={{ color: '#dc3545', fontSize: '.85rem' }}
+                  >
+                    <i className="bi bi-trash3"></i> Eliminar del historial
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-grad btn-block"
+                  onClick={() => handleFinalizeSale(selected)}
+                  disabled={finalizing}
+                  style={{ padding: '.8rem', fontSize: '1rem', fontWeight: 700 }}
+                >
+                  <i className="bi bi-check2-circle"></i>{' '}
+                  {finalizing ? 'Finalizando venta y descontando stock…' : 'Finalizar venta'}
+                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-block"
+                    onClick={() => remove(selected)}
+                    style={{ color: 'var(--muted)', fontSize: '.8rem' }}
+                  >
+                    <i className="bi bi-trash3"></i> Cancelar y eliminar pedido
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>,

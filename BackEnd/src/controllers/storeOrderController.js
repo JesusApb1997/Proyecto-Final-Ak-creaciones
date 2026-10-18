@@ -21,7 +21,7 @@
  * carrito, que es lo que el cliente acaba de pagar.
  */
 const pool = require('../config/db');
-const { sendOrderInvoice } = require('../services/mailer');
+const { sendOrderInvoice, sendCompanyFinalSaleEmail } = require('../services/mailer');
 const PaymentSettings = require('../models/PaymentSettings');
 const StoreOrder = require('../models/StoreOrder');
 const { ProductStockError, assertStockAvailable } = require('../services/productStock');
@@ -131,6 +131,28 @@ const storeOrderController = {
       }
       const order = await StoreOrder.updateStatus(Number(req.params.id), status);
       if (!order) return res.status(404).json({ success: false, message: 'Pedido no encontrado.' });
+
+      if (status === 'verificado') {
+        try {
+          const fullOrder = await StoreOrder.getById(Number(req.params.id));
+          if (fullOrder) {
+            const rawItems = Array.isArray(fullOrder.items) ? fullOrder.items : [];
+            await sendCompanyFinalSaleEmail({
+              orderType: 'Pedido Web',
+              orderId: fullOrder.id,
+              orderNumber: fullOrder.order_number,
+              customerName: fullOrder.customer_name,
+              customerPhone: fullOrder.customer_email,
+              customerAddress: 'Tienda Online AK Creaciones',
+              items: rawItems,
+              total: Number(fullOrder.total || 0),
+            });
+          }
+        } catch (mailErr) {
+          console.error('✗ Error enviando correo de venta finiquitada para pedido:', mailErr.message);
+        }
+      }
+
       res.json({ success: true, data: order });
     } catch (err) {
       console.error('✗ Error actualizando estado de Pago Móvil:', err.message);

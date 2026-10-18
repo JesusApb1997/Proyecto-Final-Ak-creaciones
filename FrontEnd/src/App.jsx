@@ -139,10 +139,13 @@ function Store({ auth, storeAuth: customer, onStoreAuthChange, onLogoutStaff }) 
     const refreshWhenVisible = () => {
       if (!document.hidden) loadProducts()
     }
+    const onProductsChanged = () => loadProducts()
     window.addEventListener('focus', refreshWhenVisible)
+    window.addEventListener('ak-products-changed', onProductsChanged)
     const interval = window.setInterval(refreshWhenVisible, 60000)
     return () => {
       window.removeEventListener('focus', refreshWhenVisible)
+      window.removeEventListener('ak-products-changed', onProductsChanged)
       window.clearInterval(interval)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

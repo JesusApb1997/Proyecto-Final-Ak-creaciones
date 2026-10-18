@@ -104,6 +104,9 @@ export default function OrdersView() {
       const { data } = await storeOrdersAdminApi.updateStatus(selected.id, status)
       setOrders((current) => current.map((order) => order.id === selected.id ? { ...order, ...data.data } : order))
       setSelected((current) => current ? { ...current, ...data.data } : current)
+      if (status === 'verificado') {
+        window.dispatchEvent(new CustomEvent('ak-products-changed'))
+      }
     } catch (err) {
       setStatusError(err?.message || 'No se pudo actualizar el estado del pedido')
     } finally {

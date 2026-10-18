@@ -163,33 +163,32 @@ export default function Header({
             </button>
           )}
 
-          {/* Login opcional del cliente/comprador: correo, Google o Apple */}
+          {/* Menú de cuenta si ya inició sesión; si no, botones de Acceder y Regístrate */}
           {activeAccount ? (
             <CustomerMenu customer={activeAccount} onLogout={logoutAccount} isStaff={isStaff} />
           ) : (
-            <button
-              type="button"
-              className="access-corner-btn"
-              onClick={onLoginClick}
-              aria-label="Iniciar sesión o crear cuenta"
-              title="Iniciar sesión — correo, Google o Apple"
-            >
-              <i className="bi bi-person-circle"></i>
-              <span className="access-corner-txt">Acceder</span>
-            </button>
-          )}
+            <>
+              <button
+                type="button"
+                className="access-corner-btn"
+                onClick={onLoginClick}
+                aria-label="Iniciar sesión o crear cuenta"
+                title="Iniciar sesión — correo, Google o Apple"
+              >
+                <i className="bi bi-person-circle"></i>
+                <span className="access-corner-txt">Acceder</span>
+              </button>
 
-          {/* Pestaña de registro de usuario (#/registro): correo · Google · Apple */}
-          {!customer && (
-            <a
-              href="#/registro"
-              className="access-corner-btn access-register-btn"
-              aria-label="Crear una cuenta nueva"
-              title="Regístrate — correo, Google o Apple"
-            >
-              <i className="bi bi-person-plus"></i>
-              <span className="access-corner-txt">Regístrate</span>
-            </a>
+              <a
+                href="#/registro"
+                className="access-corner-btn access-register-btn"
+                aria-label="Crear una cuenta nueva"
+                title="Regístrate — correo, Google o Apple"
+              >
+                <i className="bi bi-person-plus"></i>
+                <span className="access-corner-txt">Regístrate</span>
+              </a>
+            </>
           )}
 
           {/* Instalar la PWA: disponible siempre, el usuario elige cuándo */}

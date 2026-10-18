@@ -64,4 +64,27 @@ async function deductStock(client, items) {
   }
 }
 
-module.exports = { ProductStockError, assertStockAvailable, deductStock };
+async function resolveStockItems(client, items) {
+  const parsed = Array.isArray(items) ? items : [];
+  const unresolvedNames = [...new Set(parsed
+    .filter((item) => !Number.isInteger(Number(item.product_id ?? item.id)))
+    .map((item) => String(item.name || '').trim())
+    .filter(Boolean))];
+  const nameToId = new Map();
+  for (const name of unresolvedNames) {
+    const { rows } = await client.query(
+      'SELECT id FROM products WHERE LOWER(name) = LOWER($1) ORDER BY id LIMIT 2',
+      [name]
+    );
+    if (rows.length !== 1) {
+      throw new ProductStockError(`No se pudo identificar de forma única el producto "${name}" en este pedido.`);
+    }
+    nameToId.set(name.toLowerCase(), Number(rows[0].id));
+  }
+  return parsed.map((item) => {
+    const id = Number(item.product_id ?? item.id) || nameToId.get(String(item.name || '').trim().toLowerCase());
+    return { product_id: id, qty: Number(item.qty) };
+  });
+}
+
+module.exports = { ProductStockError, assertStockAvailable, deductStock, resolveStockItems };

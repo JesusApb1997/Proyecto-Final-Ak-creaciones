@@ -127,6 +127,58 @@ async function downloadWord(title, columns, records) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+async function downloadExcel(title, columns, records) {
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet(title)
+
+  // Add title row
+  worksheet.addRow([title])
+  worksheet.getRow(1).font = { bold: true, size: 14 }
+  worksheet.mergeCells(1, 1, columns.length, 1)
+
+  // Add generated at row
+  const generatedAt = new Date().toLocaleString('es-VE')
+  worksheet.addRow([`Generado: ${generatedAt} · Registros: ${records.length}`])
+  worksheet.getRow(2).font = { italic: true, size: 10 }
+
+  // Add column headers
+  const headerRow = worksheet.addRow([])
+  columns.forEach((column) => {
+    headerRow.addColumn(column.label)
+  })
+  headerRow.font = { bold: true, color: { rgb: 'FFFFFF' } }
+  headerRow.fill = { fgColor: { rgb: '1FA2C7' } }
+
+  // Add data rows
+  records.forEach((record, index) => {
+    const row = worksheet.addRow([])
+    columns.forEach((column) => {
+      const value = column.getValue(record)
+      row.addCell(String(value ?? '—'))
+    })
+    // Style data rows
+    row.eachCell((cell) => {
+      cell.font = { size: 11 }
+      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+    })
+  })
+
+  // Set column widths based on label length
+  columns.forEach((column, colIndex) => {
+    const maxLength = column.label.length
+    worksheet.getColumn(colIndex + 1).width = Math.max(15, Math.min(60, maxLength + 5))
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  const link = window.document.createElement('a')
+  link.href = url
+  link.download = `${title.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export default function ReportToolbar({ title, fields, columns, report }) {
   const [exportError, setExportError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -139,6 +191,7 @@ export default function ReportToolbar({ title, fields, columns, report }) {
     setExporting(true)
     try {
       if (format === 'pdf') await downloadPdf(title, columns, records)
+      else if (format === 'excel') await downloadExcel(title, columns, records)
       else await downloadWord(title, columns, records)
     } catch (error) {
       console.error(`No se pudo generar el reporte ${format.toUpperCase()}:`, error)
@@ -180,6 +233,9 @@ export default function ReportToolbar({ title, fields, columns, report }) {
         </button>
         <button type="button" className="btn-icon report-export-word" title="Descargar reporte Word" aria-label="Descargar reporte Word" onClick={() => exportFile('word')} disabled={!records.length || exporting}>
           <i className={exporting ? 'bi bi-hourglass-split' : 'bi bi-file-earmark-word-fill'} aria-hidden="true"></i>
+        </button>
+        <button type="button" className="btn-icon report-export-excel" title="Descargar reporte Excel" aria-label="Descargar reporte Excel" onClick={() => exportFile('excel')} disabled={!records.length || exporting}>
+          <i className={exporting ? 'bi bi-hourglass-split' : 'bi bi-file-earmark-excel-fill'} aria-hidden="true"></i>
         </button>
       </div>
       {report.selectedRecords.length > 0 && (

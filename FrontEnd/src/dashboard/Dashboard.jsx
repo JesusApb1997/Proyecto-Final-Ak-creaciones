@@ -8,6 +8,7 @@ import DeliveryView from './DeliveryView.jsx'
 import OrdersView from './OrdersView.jsx'
 import PaymentSettingsView from './PaymentSettingsView.jsx'
 import ReportToolbar, { useReportFilter } from './ReportTools.jsx'
+import StockNotifications from './StockNotifications.jsx'
 import { money, PRODUCT_CATEGORIES, PRODUCT_IMAGES, cdn } from '../config.js'
 
 /* ==========================================================
@@ -134,6 +135,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
       // su URL pública se persiste en la columna img de la BD junto con el resto.
       if (isEdit) await productsApi.update(product.id, payload)
       else await productsApi.create(payload)
+      window.dispatchEvent(new CustomEvent('ak-products-changed'))
       onSaved(isEdit ? '✓ Producto actualizado — el catálogo de la tienda ya muestra los cambios' : '✓ Producto creado')
     } catch (err) {
       setError(err?.message || 'No se pudo guardar el producto')
@@ -285,6 +287,7 @@ function ProductsView({ showToast, readOnly = false }) {
     if (!window.confirm(`¿Eliminar "${p.name}" de la base de datos? Esta acción no se puede deshacer.`)) return
     try {
       await productsApi.remove(p.id)
+      window.dispatchEvent(new CustomEvent('ak-products-changed'))
       showToast(`✓ "${p.name}" eliminado`)
       load()
     } catch (err) {
@@ -916,6 +919,9 @@ export default function Dashboard({ onLogout, onGoHome }) {
               <i className={`bi ${isAdmin ? 'bi-shield-check' : 'bi-person-badge'}`}></i>
               {isAdmin ? 'Admin' : 'Empleado'}
             </span>
+
+            {/* Notificaciones de stock bajo (mínimo 3 unidades) al lado del botón admin/empleado */}
+            <StockNotifications onNavigateToProducts={() => setSection('productos')} />
 
             {/* ===== Menú desplegable del navbar ===== */}
             <div className={`dash-menu-wrap${menuOpen ? ' open' : ''}`} ref={menuRef}>

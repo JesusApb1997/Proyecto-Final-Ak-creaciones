@@ -3,7 +3,7 @@
  * Contiene todas las consultas SQL a la tabla "Delivery"
  */
 const pool = require('../config/db');
-const { deductStock } = require('../services/productStock');
+const { deductStock, resolveStockItems } = require('../services/productStock');
 
 /* Columnas editables */
 const EDITABLE_COLS = ['name', 'last_name', 'phone', 'address', 'localidad', 'maps_url', 'items', 'total', 'status', 'notes', 'user_id'];
@@ -78,8 +78,9 @@ const Delivery = {
         throw error;
       }
       if (!delivery.stock_deducted_at) {
-        const items = Array.isArray(delivery.items) ? delivery.items : [];
-        await deductStock(client, items);
+        const rawItems = Array.isArray(delivery.items) ? delivery.items : [];
+        const stockItems = await resolveStockItems(client, rawItems);
+        await deductStock(client, stockItems);
       }
       const result = await client.query(
         `UPDATE "Delivery"
@@ -89,6 +90,52 @@ const Delivery = {
          WHERE id = $4
          RETURNING *`,
         [driver_name, driver_phone, location_confirmed, id]
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Finalizar una venta de delivery: asegura el descuento de stock de los productos vendidos y marca status como 'entregado'
+  async finalizeSale(id) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        'SELECT * FROM "Delivery" WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      const delivery = rows[0];
+      if (!delivery) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      if (delivery.status === 'cancelado') {
+        const error = new Error('No se puede finiquitar una venta que fue cancelada.');
+        error.code = 'DELIVERY_STATUS_CONFLICT';
+        throw error;
+      }
+
+      // Si no se había descontado el stock previamente, descontarlo ahora atómicamente
+      if (!delivery.stock_deducted_at) {
+        const rawItems = Array.isArray(delivery.items) ? delivery.items : [];
+        const stockItems = await resolveStockItems(client, rawItems);
+        await deductStock(client, stockItems);
+      }
+
+      const result = await client.query(
+        `UPDATE "Delivery"
+         SET status = 'entregado',
+             stock_deducted_at = COALESCE(stock_deducted_at, NOW()),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [id]
       );
       await client.query('COMMIT');
       return result.rows[0];

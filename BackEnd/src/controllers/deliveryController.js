@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const Delivery = require('../models/Delivery');
 const { sendDeliveryUpdate } = require('../services/whatsapp');
 const { ProductStockError, assertStockAvailable } = require('../services/productStock');
+const { sendCompanyFinalSaleEmail } = require('../services/mailer');
 const pool = require('../config/db');
 
 const deliveryController = {
@@ -203,6 +204,49 @@ const deliveryController = {
       res.json({ success: true, data: deleted });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  // PATCH /api/delivery/:id/finalize — finiquita la venta, descuenta stock y envía la factura a la empresa por SMTP
+  async finalizeSale(req, res) {
+    try {
+      const updated = await Delivery.finalizeSale(req.params.id);
+      if (!updated) {
+        return res.status(404).json({ success: false, message: `No existe pedido con id ${req.params.id}` });
+      }
+
+      // Enviar correo con la factura y confirmación de venta finiquitada a la empresa por SMTP
+      let mail = { delivered: false };
+      try {
+        const rawItems = Array.isArray(updated.items) ? updated.items : [];
+        mail = await sendCompanyFinalSaleEmail({
+          orderType: 'Delivery',
+          orderId: updated.id,
+          orderNumber: updated.order_number,
+          invoiceNumber: updated.invoice_number,
+          customerName: [updated.name, updated.last_name].filter(Boolean).join(' '),
+          customerPhone: updated.phone,
+          customerAddress: updated.address || updated.maps_url,
+          driverName: updated.driver_name,
+          items: rawItems,
+          total: Number(updated.total || 0),
+        });
+      } catch (mailErr) {
+        console.error('✗ Error enviando correo de venta finiquitada:', mailErr.message);
+      }
+
+      res.json({
+        success: true,
+        message: '✓ Venta finiquitada con éxito. El stock de productos ha sido descontado y la factura enviada.',
+        data: updated,
+        email: mail,
+      });
+    } catch (err) {
+      console.error('✗ Error finalizando la venta de delivery:', err);
+      if (err instanceof ProductStockError || err.code === 'DELIVERY_STATUS_CONFLICT') {
+        return res.status(409).json({ success: false, message: err.message });
+      }
+      res.status(500).json({ success: false, message: err.message || 'Error al finalizar la venta' });
     }
   },
 };

@@ -85,6 +85,18 @@ const StoreOrder = {
     return rows;
   },
 
+  async getById(id) {
+    const { rows } = await pool.query(
+      `SELECT id, order_number, user_id, customer_name, customer_email, payment_method,
+              status, items, total, payment_details, payer_phone, payer_bank,
+              reported_amount, reference_number, receipt_name,
+              (receipt_data IS NOT NULL) AS has_receipt, verified_at, created_at
+       FROM store_orders WHERE id = $1`,
+      [id]
+    );
+    return rows[0] || null;
+  },
+
   async getReceipt(id) {
     const { rows } = await pool.query(
       'SELECT receipt_name, receipt_mime, receipt_data FROM store_orders WHERE id = $1',
