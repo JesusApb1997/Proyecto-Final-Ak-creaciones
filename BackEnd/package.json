@@ -22,6 +22,7 @@
     "migrate:images": "node src/scripts/migrate-images.js",
     "gen:qr": "node src/scripts/generate-qr.js",
     "gen:diagram": "node scripts/generate-process-diagram.js",
+    "check:google": "node scripts/check-google-client.js",
     "gen:icons": "node src/scripts/generate-icons.js"
   },
   "keywords": [

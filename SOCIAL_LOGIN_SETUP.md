@@ -72,6 +72,18 @@ las tres líneas de arriba.
 
 ## 3. Comprobar que quedó bien
 
+0. Antes de tocar el navegador, comprueba las credenciales desde la terminal:
+
+   ```bash
+   cd BackEnd
+   npm run check:google
+   ```
+
+   El script pregunta a Google si el `GOOGLE_CLIENT_ID` sigue existiendo y si
+   el `GOOGLE_CLIENT_SECRET` corresponde a ese cliente. Imprime el paso a
+   seguir si algo falla. También puedes probar un ID candidato sin tocar los
+   `.env`: `node scripts/check-google-client.js <client_id>`.
+
 1. Reinicia el frontend: `cd FrontEnd && npm run dev`.
 2. Abre `http://localhost:5173/#/acceder`: debe aparecer el botón de Google.
 3. Ábrela consola (F12). Si al pulsar el botón ves
@@ -88,4 +100,5 @@ las tres líneas de arriba.
 | `Google Sign-In aún no está activo…` | Falta `VITE_GOOGLE_CLIENT_ID` o no reiniciaste Vite |
 | `The given origin is not allowed…` | El origen no está en la lista de Google |
 | `No se pudo verificar el token de Google. Revisa GOOGLE_CLIENT_ID en el backend.` | El backend tiene otro `GOOGLE_CLIENT_ID` (o ninguno) distinto al del frontend |
+| `Acceso bloqueado: error de autorización` → `The OAuth client was not found.` (Error 401 `invalid_client`) | **El ID de cliente ya no existe en Google Cloud**: se borró la credencial, se eliminó el proyecto o el ID quedó mal copiado en los `.env`. Vuelve a crearlo en *Credenciales* y actualiza `BackEnd/.env` (ID + secreto) y `FrontEnd/.env` (ID). Confírmalo con `npm run check:google` |
 | El botón no aparece | El proveedor no tiene credenciales: es intencional |
