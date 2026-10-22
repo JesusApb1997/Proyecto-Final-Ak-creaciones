@@ -204,6 +204,11 @@ button{ font-family:inherit; cursor:pointer; }
   content:""; position:absolute; inset:0;
   background:linear-gradient(78deg, rgba(18,20,32,.78) 8%, rgba(18,20,32,.42) 45%, rgba(18,20,32,.05) 75%);
 }
+/* Slides cuyo sujeto queda a la izquierda: el texto se alinea a la derecha
+   y el degradado se invierte para no tapar a la modelo. */
+.slide.slide-right::after{
+  background:linear-gradient(102deg, rgba(18,20,32,.05) 25%, rgba(18,20,32,.42) 55%, rgba(18,20,32,.78) 92%);
+}
 .slide-content{
   position:absolute; inset:0; z-index:1; color:#fff;
   display:flex; flex-direction:column; justify-content:center; align-items:flex-start;
@@ -216,6 +221,11 @@ button{ font-family:inherit; cursor:pointer; }
 .slide-content h2{ font-family:'Playfair Display',serif; font-size:clamp(1.7rem,4vw,2.9rem); margin:0 0 .6rem; line-height:1.1; }
 .slide-content p{ opacity:.92; margin:0 0 1.3rem; font-size:clamp(.85rem,1.6vw,1.02rem); }
 .slide-content .kicker{ color:#fff; opacity:.85; }
+.slide.slide-right .slide-content{
+  left:auto; right:0;
+  align-items:flex-end; text-align:right;
+  padding-right:clamp(1.2rem,5vw,4.5rem);
+}
 
 .car-btn{
   position:absolute; top:50%; translate:0 -50%; z-index:2;
@@ -478,8 +488,9 @@ button{ font-family:inherit; cursor:pointer; }
 .btn-pago-movil:hover:not(:disabled) i{ color:#fff; }
 .btn-pago-movil:disabled{ opacity:.5; cursor:not-allowed; }
 
-/* ===== Ventana de Pago Móvil ===== */
-.pm-box{ max-width:460px; }
+/* ===== Ventana de Pago Móvil =====
+   El ancho lo fija la clase .wide-modal (ventana ancha compartida
+   con el delivery); aquí solo viven los detalles del pago. */
 .pm-total{
   display:flex; align-items:center; justify-content:space-between;
   margin:.9rem 0 1.1rem; padding:.85rem 1.1rem;
@@ -591,6 +602,75 @@ button{ font-family:inherit; cursor:pointer; }
 .admin-err{ color:#D64560; font-size:.82rem; margin:0; }
 .admin-panel p{ font-size:.88rem; color:var(--turq); }
 .admin-panel i{ margin-right:.3rem; }
+
+/* ==========================================================
+   Ventanas anchas del cliente: delivery y pago móvil
+   Se abren a dos columnas para que el formulario completo entre
+   en pantalla sin barra de scroll, con la misma retícula y los
+   mismos colores que el resto del sitio.
+   ========================================================== */
+.wide-modal{
+  width:min(900px, 96vw);
+  padding:1.8rem clamp(1.3rem, 3vw, 2.4rem);
+}
+.wide-modal h3{
+  font-family:'Playfair Display', serif;
+  font-size:1.5rem; margin:0 0 .2rem; padding-right:2.6rem;
+}
+/* Retícula de dos columnas (formularios del cliente) */
+.wide-cols{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:.9rem 1.4rem;
+  margin-top:1.1rem;
+  align-items:start;
+}
+.wide-cols > *{ min-width:0; }
+.wide-form{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:.9rem 1.4rem; }
+.wide-form > *{ min-width:0; }
+/* Elemento que ocupa las dos columnas */
+.wide-full{ grid-column:1 / -1; }
+.wide-success{ max-width:560px; }
+/* Resumen del pedido (total + artículos) */
+.wide-summary{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:.7rem 1.4rem; flex-wrap:wrap;
+  padding:.85rem 1.1rem; border-radius:var(--radius);
+  border:1px solid var(--border); background:var(--bg);
+}
+.wide-summary-total{ display:grid; gap:.05rem; }
+.wide-summary-total span{ font-size:.75rem; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); }
+.wide-summary-total strong{ font-size:1.3rem; }
+.wide-summary-items{
+  list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap;
+  gap:.25rem .9rem; color:var(--muted); font-size:.85rem;
+}
+/* Panel lateral con las notas (instrucciones de pago, avisos) */
+.wide-side{
+  display:grid; gap:.55rem; align-content:start;
+  padding:.95rem 1.1rem; border:1px solid var(--border);
+  border-radius:var(--radius); background:var(--bg);
+}
+.wide-side .pm-note{ margin:0; }
+/* Captura del comprobante: archivo a la izquierda, vista previa a la derecha */
+.wide-upload{
+  display:grid; grid-template-columns:minmax(0,1fr) auto;
+  gap:1rem; align-items:start;
+}
+.wide-upload .pm-receipt-preview{
+  width:min(300px,100%); height:170px; min-height:0;
+  display:grid; place-items:center; overflow:hidden;
+}
+.wide-upload .pm-receipt-preview img{ width:100%; height:100%; object-fit:contain; }
+.wide-modal .pm-list{ margin:0; }
+.wide-modal .pm-actions{ justify-content:flex-end; }
+.wide-modal .pm-actions .btn{ flex:0 1 auto; min-width:min(190px, 100%); }
+@media (max-width:720px){
+  .wide-cols, .wide-form{ grid-template-columns:1fr; }
+  .wide-upload{ grid-template-columns:1fr; }
+  .wide-modal .pm-actions{ flex-wrap:wrap; }
+  .wide-modal .pm-actions .btn{ flex:1 1 100%; }
+}
 
 /* ================= Toast ================= */
 .toast{

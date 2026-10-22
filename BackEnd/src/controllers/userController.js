@@ -5,7 +5,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const { usernameValidationError } = require('../utils/username');
-const { sendWelcomeEmail } = require('../services/mailer');
+const { generateRandomPassword } = require('../utils/randomPassword');
+const { sendWelcomeEmail, sendTemporaryPasswordEmail } = require('../services/mailer');
 
 /*
  * Normaliza el rol que llega desde Supabase o el formulario:
@@ -42,7 +43,10 @@ const UserController = {
       }
 
       const hash = await bcrypt.hash(String(password), 10);
-      const updated = await User.setPassword(req.params.id, hash);
+      /* applyPassword (y no setPassword) para que quede registrado cuándo se
+         cambió la clave: así los JWT que ese usuario tenía abiertos se
+         invalidan, igual que con la contraseña generada y enviada por correo. */
+      const updated = await User.applyPassword(req.params.id, hash, new Date());
 
       if (!updated) {
         return res.status(404).json({
@@ -54,6 +58,79 @@ const UserController = {
         success: true,
         message: `Contraseña asignada a ${updated.name}. Ya puede iniciar sesión.`,
         data: updated,
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+  // POST /api/users/:id/password/generate  (solo admin)
+  /* Genera una contraseña aleatoria, la hashea (bcrypt) y se la envía al
+     CORREO REGISTRADO del usuario por SMTP. Solo si el correo se entrega
+     se guarda el hash nuevo: si el envío falla, la contraseña anterior sigue
+     vigente y el usuario no se queda sin acceso. */
+  async generatePassword(req, res) {
+    try {
+      const id = req.params.id;
+
+      const user = await User.getById(id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: `No existe usuario con id ${id}`,
+        });
+      }
+      if (!user.email) {
+        return res.status(400).json({
+          success: false,
+          message: `${user.name} no tiene un correo registrado: no se le puede enviar la contraseña.`,
+        });
+      }
+
+      const temporaryPassword = generateRandomPassword(12);
+      const hash = await bcrypt.hash(temporaryPassword, 10);
+
+      const mail = await sendTemporaryPasswordEmail({
+        to: user.email,
+        name: user.name,
+        role: user.role,
+        temporaryPassword,
+        changedBy: req.user?.name ? `${req.user.name} (panel de administración)` : 'Panel de administración',
+      });
+
+      if (!mail.delivered) {
+        // El correo no llegó: NO se cambia la contraseña (el usuario conserva
+        // la anterior) y se avisa para reintentar.
+        console.error(`✗ Contraseña de ${user.email} no entregada (${mail.mode})`);
+        return res.status(502).json({
+          success: false,
+          message:
+            mail.mode === 'smtp-unconfigured'
+              ? 'No se pudo enviar el correo: SMTP no está configurado en el backend. La contraseña del usuario no se modificó.'
+              : `No se pudo enviar el correo a ${user.email}. La contraseña del usuario no se modificó.`,
+          data: { email: user.email, delivered: false, mode: mail.mode },
+        });
+      }
+
+      // El correo ya salió: ahora sí se aplica el cambio en la BD.
+      // password_changed_at invalida los JWT que ese usuario tenía abiertos.
+      const updated = await User.applyPassword(id, hash, new Date());
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          message: `No existe usuario con id ${id}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Contraseña nueva de ${updated.name} enviada a ${updated.email}.`,
+        data: {
+          id: updated.id,
+          name: updated.name,
+          email: updated.email,
+          delivered: true,
+          mode: mail.mode,
+        },
       });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });

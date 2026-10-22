@@ -130,34 +130,22 @@ async function downloadWord(title, columns, records) {
 async function downloadExcel(title, columns, records) {
   const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet(title)
+  const worksheet = workbook.addWorksheet(title.slice(0, 31))
 
-  // Add title row
   worksheet.addRow([title])
   worksheet.getRow(1).font = { bold: true, size: 14 }
-  worksheet.mergeCells(1, 1, columns.length, 1)
+  if (columns.length > 1) worksheet.mergeCells(1, 1, 1, columns.length)
 
-  // Add generated at row
   const generatedAt = new Date().toLocaleString('es-VE')
   worksheet.addRow([`Generado: ${generatedAt} · Registros: ${records.length}`])
   worksheet.getRow(2).font = { italic: true, size: 10 }
 
-  // Add column headers
-  const headerRow = worksheet.addRow([])
-  columns.forEach((column) => {
-    headerRow.addColumn(column.label)
-  })
+  const headerRow = worksheet.addRow(columns.map((column) => column.label))
   headerRow.font = { bold: true, color: { rgb: 'FFFFFF' } }
-  headerRow.fill = { fgColor: { rgb: '1FA2C7' } }
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { rgb: '1FA2C7' } }
 
-  // Add data rows
-  records.forEach((record, index) => {
-    const row = worksheet.addRow([])
-    columns.forEach((column) => {
-      const value = column.getValue(record)
-      row.addCell(String(value ?? '—'))
-    })
-    // Style data rows
+  records.forEach((record) => {
+    const row = worksheet.addRow(columns.map((column) => String(column.getValue(record) ?? '—')))
     row.eachCell((cell) => {
       cell.font = { size: 11 }
       cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }

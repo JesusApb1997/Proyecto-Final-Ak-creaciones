@@ -16,6 +16,8 @@ const router = Router();
 // POST   /api/users        -> crea un usuario              (solo admin)
 // PUT    /api/users/:id    -> actualiza un usuario         (solo admin)
 // PUT    /api/users/:id/password -> asigna/restablece contraseña (solo admin)
+// POST   /api/users/:id/password/generate -> genera una contraseña aleatoria
+//          y la envía por SMTP al correo del usuario (solo admin)
 // DELETE /api/users/:id    -> elimina un usuario           (solo admin)
 
 const adminOnly = [verifyToken, requireRole('admin')];
@@ -25,6 +27,7 @@ router.get('/:id', adminOnly, UserController.getById);
 router.post('/', adminOnly, UserController.create);
 router.put('/:id', adminOnly, UserController.update);
 router.put('/:id/password', adminOnly, UserController.setPassword);
+router.post('/:id/password/generate', adminOnly, UserController.generatePassword);
 router.delete('/:id', adminOnly, UserController.remove);
 
 module.exports = router;

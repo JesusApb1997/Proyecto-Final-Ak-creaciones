@@ -92,16 +92,22 @@ const User = {
     return result.rows[0];
   },
 
-  // Asignar/restablecer la contraseña de un usuario (lo hace la administración)
-  async setPassword(id, passwordHash) {
+  /* Guarda la contraseña (hash bcrypt) e invalida las sesiones abiertas:
+     password_changed_at deja invalidados los JWT emitidos antes del cambio y
+     se limpian los tokens de recuperación pendientes. */
+  async applyPassword(id, passwordHash, changedAt = new Date()) {
     const result = await pool.query(
       `UPDATE users
-       SET password_hash = $1, updated_at = NOW()
-       WHERE id = $2
+       SET password_hash = $1,
+           password_changed_at = $2,
+           reset_token_hash = NULL,
+           reset_token_expires = NULL,
+           updated_at = NOW()
+       WHERE id = $3
        RETURNING id, name, last_name, email, role`,
-      [passwordHash, id]
+      [passwordHash, changedAt, id]
     );
-    return result.rows[0];
+    return result.rows[0] || null;
   },
 
   // Eliminar un usuario (cualquier rol: admin, empleado o cliente)

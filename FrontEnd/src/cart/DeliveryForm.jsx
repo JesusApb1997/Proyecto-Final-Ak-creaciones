@@ -82,7 +82,7 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
 
   return (
     <div className="modal show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) close() }}>
-      <div className="modal-box" style={{ maxWidth: '500px' }}>
+      <div className="modal-box wide-modal">
         <button className="btn-icon modal-close" onClick={close} aria-label="Cerrar">
           <i className="bi bi-x-lg"></i>
         </button>
@@ -90,7 +90,7 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
         <h3>{submitted ? 'Solicitud recibida' : 'Datos para la entrega'}</h3>
 
         {submitted ? (
-          <div className="product-form">
+          <div className="product-form wide-success">
             <p className="pm-status"><i className="bi bi-check-circle"></i> Pedido {submitted.order_number} guardado en el dashboard.</p>
             <p className="admin-note">Factura: <strong>{submitted.invoice_number}</strong> · Total: <strong>{money(Number(submitted.total ?? total))}</strong></p>
             <a className="btn btn-grad btn-block" href={submitted.whatsappUrl} target="_blank" rel="noopener noreferrer">
@@ -99,16 +99,15 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
             <button type="button" className="btn btn-ghost btn-block" onClick={close}>Listo</button>
           </div>
         ) : (
-        <form onSubmit={submit} className="product-form">
-          <div className="ff-row">
-            <div className="ff">
-              <label>Nombre *</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="ff">
-              <label>Apellido *</label>
-              <input required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-            </div>
+        <form onSubmit={submit} className="product-form wide-form">
+          <div className="ff">
+            <label htmlFor="delivery-name">Nombre *</label>
+            <input id="delivery-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+
+          <div className="ff">
+            <label htmlFor="delivery-last-name">Apellido *</label>
+            <input id="delivery-last-name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
           </div>
 
           <div className="ff">
@@ -122,14 +121,24 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
           </div>
 
           <div className="ff">
-            <label>Dirección escrita</label>
-            <textarea rows="2" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Calle, número, referencia..." />
+            <label htmlFor="delivery-localidad">Localidad</label>
+            <input id="delivery-localidad" value={form.localidad} onChange={(e) => setForm({ ...form, localidad: e.target.value })} placeholder="Ciudad / Urbanización" />
           </div>
 
           <div className="ff">
-            <label>Ubicación de Google Maps (opcional si escribes la dirección)</label>
+            <label htmlFor="delivery-address">Dirección escrita</label>
+            <textarea id="delivery-address" rows="2" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Calle, número, referencia..." />
+          </div>
+
+          <div className="ff">
+            <label htmlFor="delivery-notes">Notas adicionales</label>
+            <textarea id="delivery-notes" rows="2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Indicaciones para el delivery..." />
+          </div>
+
+          <div className="ff wide-full">
+            <label htmlFor="delivery-maps">Ubicación de Google Maps (opcional si escribes la dirección)</label>
             <div className="maps-url-control">
-              <input type="url" value={form.maps_url} onChange={(e) => setForm({ ...form, maps_url: e.target.value })} placeholder="https://maps.app.goo.gl/..." />
+              <input id="delivery-maps" type="url" value={form.maps_url} onChange={(e) => setForm({ ...form, maps_url: e.target.value })} placeholder="https://maps.app.goo.gl/..." />
               <button
                 type="button"
                 className="maps-picker-toggle"
@@ -153,24 +162,27 @@ export default function DeliveryForm({ open, items, total, onClose, toast, userS
             )}
           </div>
 
-          <div className="ff">
-            <label>Localidad</label>
-            <input value={form.localidad} onChange={(e) => setForm({ ...form, localidad: e.target.value })} placeholder="Ciudad / Urbanización" />
+          <div className="wide-full">
+            <div className="wide-summary">
+              <div className="wide-summary-total">
+                <span>Total a pagar</span>
+                <strong>{money(total)}</strong>
+              </div>
+              <ul className="wide-summary-items">
+                {items.map((item, index) => (
+                  <li key={`${item.key}-${index}`}>
+                    {item.name} ×{item.qty}{[item.color, item.size].filter(Boolean).length ? ` · ${[item.color, item.size].filter(Boolean).join(' · ')}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
-          <div className="ff">
-            <label>Notas adicionales</label>
-            <textarea rows="2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Indicaciones para el delivery..." />
+          <div className="wide-full">
+            <button type="submit" className="btn btn-grad btn-block" disabled={sending}>
+              {sending ? 'Enviando...' : 'Enviar pedido y coordinar por WhatsApp'}
+            </button>
           </div>
-
-          <div style={{ background: 'var(--bg)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid var(--border)' }}>
-            <strong>Total: {money(total)}</strong>
-            {items.map((item, index) => <small key={`${item.key}-${index}`} style={{ display: 'block', color: 'var(--muted)' }}>{item.name} ×{item.qty}{[item.color, item.size].filter(Boolean).length ? ` · ${[item.color, item.size].filter(Boolean).join(' · ')}` : ''}</small>)}
-          </div>
-
-          <button type="submit" className="btn btn-grad btn-block" disabled={sending}>
-            {sending ? 'Enviando...' : 'Enviar pedido y coordinar por WhatsApp'}
-          </button>
         </form>
         )}
       </div>

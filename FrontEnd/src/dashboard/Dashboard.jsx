@@ -543,17 +543,34 @@ function UserFormModal({ user, onClose, onSaved }) {
 }
 
 /* ==========================================================
-   Modal: asignar / restablecer contraseña (solo admin)
+   Modal: generar contraseña aleatoria y enviarla por correo
+   (solo admin). El botón de la llave del panel de usuarios usa
+   este flujo; también permite escribir una contraseña a mano
+   por si el correo no se puede entregar.
    ========================================================== */
 function PasswordModal({ user, onClose, onSaved }) {
   const [pass, setPass] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [manual, setManual] = useState(false) // escribirla a mano en vez de enviarla
 
   useEffect(() => {
     document.body.classList.add('no-scroll')
     return () => document.body.classList.remove('no-scroll')
   }, [])
+
+  /* Genera la contraseña en el backend y la manda al correo del usuario */
+  const generate = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const { data } = await usersApi.generatePassword(user.id)
+      onSaved(data?.message || `✓ Contraseña nueva de ${user.name} enviada a ${user.email}.`)
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar la contraseña por correo')
+      setSaving(false)
+    }
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -579,21 +596,50 @@ function PasswordModal({ user, onClose, onSaved }) {
         <h3>Contraseña de {user.name}</h3>
         <p className="admin-note">
           {user.tiene_pass
-            ? 'Este usuario ya tiene acceso. Escribe una nueva contraseña para restablecerla.'
-            : 'Este usuario no puede iniciar sesión todavía. Asígnale una contraseña para darle acceso al panel.'}
+            ? 'Este usuario ya tiene acceso. Se le generará una contraseña aleatoria y se le enviará a su correo.'
+            : 'Este usuario no puede iniciar sesión todavía. Se le generará una contraseña aleatoria y se le enviará a su correo.'}
         </p>
 
-        <form className="product-form" onSubmit={submit}>
-          <div className="ff">
-            <label>Nueva contraseña (mín. 4 caracteres)</label>
-            <input type="password" required minLength="4" autoComplete="new-password"
-              value={pass} onChange={(e) => setPass(e.target.value)} />
-          </div>
-          {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
-          <button type="submit" className="btn btn-grad btn-block" disabled={saving}>
-            {saving ? 'Guardando…' : 'Asignar contraseña'}
-          </button>
-        </form>
+        {!manual ? (
+          <>
+            <div className="ff">
+              <label>Se enviará a este correo</label>
+              <input type="email" value={user.email} readOnly />
+            </div>
+            {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
+            <button type="button" className="btn btn-grad btn-block" onClick={generate} disabled={saving}>
+              {saving ? 'Generando y enviando…' : 'Generar contraseña y enviar por correo'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ marginTop: '.6rem' }}
+              onClick={() => { setManual(true); setError('') }}
+            >
+              Escribirla yo en su lugar
+            </button>
+          </>
+        ) : (
+          <form className="product-form" onSubmit={submit}>
+            <div className="ff">
+              <label>Nueva contraseña (mín. 4 caracteres)</label>
+              <input type="password" required minLength="4" autoComplete="new-password"
+                value={pass} onChange={(e) => setPass(e.target.value)} />
+            </div>
+            {error && <p className="login-error"><i className="bi bi-exclamation-circle"></i> {error}</p>}
+            <button type="submit" className="btn btn-grad btn-block" disabled={saving}>
+              {saving ? 'Guardando…' : 'Asignar contraseña'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ marginTop: '.6rem' }}
+              onClick={() => { setManual(false); setError('') }}
+            >
+              Volver al envío por correo
+            </button>
+          </form>
+        )}
       </div>
     </div>,
     document.body
@@ -718,7 +764,7 @@ function UsersView({ showToast, me }) {
                     )}
                   </td>
                   <td className="dash-actions-cell">
-                    <button className="btn-icon" title="Asignar/restablecer contraseña" onClick={() => setPassUser(u)}>
+                    <button className="btn-icon" title="Generar contraseña y enviarla por correo" onClick={() => setPassUser(u)}>
                       <i className="bi bi-key"></i>
                     </button>
                     <button className="btn-icon" title="Editar" onClick={() => setEditing(u)}>

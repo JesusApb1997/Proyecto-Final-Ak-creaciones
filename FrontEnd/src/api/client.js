@@ -33,6 +33,9 @@ export const usersApi = {
   create: (body) => api.post('/users', body),
   update: (id, body) => api.put(`/users/${id}`, body),
   setPassword: (id, password) => api.put(`/users/${id}/password`, { password }),
+  /* Genera una contraseña aleatoria en el backend y la envía por SMTP al
+     correo registrado del usuario. */
+  generatePassword: (id) => api.post(`/users/${id}/password/generate`),
   remove: (id) => api.delete(`/users/${id}`),
 }
 

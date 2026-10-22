@@ -114,7 +114,7 @@ export default function MobilePaymentModal({ open, items, total, userSession, on
   return (
     <div className="modal show" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget && !sending) onClose() }}>
-      <div className="modal-box pm-box">
+      <div className="modal-box wide-modal">
         <button className="btn-icon modal-close" onClick={onClose} aria-label="Cerrar" disabled={sending}>
           <i className="bi bi-x-lg"></i>
         </button>
@@ -139,41 +139,47 @@ export default function MobilePaymentModal({ open, items, total, userSession, on
 
         {!reportOpen && !loading && !error && datos && datos.enabled !== false && (
           <>
-            {/* Si la administración aún no cargó los datos, no mostramos una
-                lista vacía: se lo decimos al cliente y lo mandamos a WhatsApp. */}
-            {filas.length === 0 ? (
-              <p className="pm-status">
-                <i className="bi bi-info-circle"></i> La administración todavía no cargó los datos
-                del pago móvil. Escríbenos por WhatsApp y coordinamos tu pago.
-              </p>
-            ) : (
-              <ul className="pm-list">
-                {filas.map((f) => (
-                  <li key={f.label}>
-                    <i className={`bi ${f.icon}`}></i>
-                    <span className="pm-label">{f.label}</span>
-                    <strong className="pm-value">{f.valor}</strong>
-                    <button
-                      type="button"
-                      className="pm-copy"
-                      onClick={() => copiar(f.valor, f.label)}
-                      title={`Copiar ${f.label}`}
-                    >
-                      <i className={`bi ${copiado === f.label ? 'bi-check2' : 'bi-clipboard'}`}></i>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="wide-cols">
+              <div>
+                {/* Si la administración aún no cargó los datos, no mostramos una
+                    lista vacía: se lo decimos al cliente y lo mandamos a WhatsApp. */}
+                {filas.length === 0 ? (
+                  <p className="pm-status">
+                    <i className="bi bi-info-circle"></i> La administración todavía no cargó los datos
+                    del pago móvil. Escríbenos por WhatsApp y coordinamos tu pago.
+                  </p>
+                ) : (
+                  <ul className="pm-list">
+                    {filas.map((f) => (
+                      <li key={f.label}>
+                        <i className={`bi ${f.icon}`}></i>
+                        <span className="pm-label">{f.label}</span>
+                        <strong className="pm-value">{f.valor}</strong>
+                        <button
+                          type="button"
+                          className="pm-copy"
+                          onClick={() => copiar(f.valor, f.label)}
+                          title={`Copiar ${f.label}`}
+                        >
+                          <i className={`bi ${copiado === f.label ? 'bi-check2' : 'bi-clipboard'}`}></i>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-            {datos.instructions && (
-              <p className="pm-note"><i className="bi bi-pencil-square"></i> {datos.instructions}</p>
-            )}
+              <div className="wide-side">
+                {datos.instructions && (
+                  <p className="pm-note"><i className="bi bi-pencil-square"></i> {datos.instructions}</p>
+                )}
 
-            <p className="pm-note">
-              <i className="bi bi-envelope-check"></i> Después de pagar, reporta el pago para guardar
-              el pedido y enviar la factura a tu correo.
-            </p>
+                <p className="pm-note">
+                  <i className="bi bi-envelope-check"></i> Después de pagar, reporta el pago para guardar
+                  el pedido y enviar la factura a tu correo.
+                </p>
+              </div>
+            </div>
 
             <div className="pm-actions">
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={sending}>
@@ -193,53 +199,53 @@ export default function MobilePaymentModal({ open, items, total, userSession, on
         )}
 
         {reportOpen && (
-          <form className="product-form" onSubmit={finalizarReporte}>
-            <p className="pm-note">Adjunta la captura del comprobante o completa los cuatro datos del pago.</p>
-            <div className="ff">
+          <form className="product-form wide-form" onSubmit={finalizarReporte}>
+            <p className="pm-note wide-full">Adjunta la captura del comprobante o completa los cuatro datos del pago.</p>
+            <div className="ff wide-full">
               <label htmlFor="payment-receipt">Captura del pago (opcional si completas los datos)</label>
-              <input
-                id="payment-receipt"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] || null
-                  if (file && file.size > 5 * 1024 * 1024) {
-                    setReceipt(null)
-                    setReportError('La captura no puede superar 5 MB.')
-                    event.target.value = ''
-                    return
-                  }
-                  setReportError('')
-                  setReceipt(file)
-                }}
-                disabled={sending}
-              />
-              {receiptPreview && (
-                <div className="ff-img-preview pm-receipt-preview">
-                  <img src={receiptPreview} alt="Vista previa del comprobante" />
-                </div>
-              )}
-            </div>
-            <div className="ff-row">
-              <div className="ff">
-                <label htmlFor="payment-phone">Teléfono desde el que pagaste</label>
-                <input id="payment-phone" type="tel" value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} disabled={sending} />
-              </div>
-              <div className="ff">
-                <label htmlFor="payment-bank">Banco emisor</label>
-                <input id="payment-bank" value={payerBank} onChange={(e) => setPayerBank(e.target.value)} disabled={sending} />
-              </div>
-              <div className="ff">
-                <label htmlFor="payment-amount">Monto pagado</label>
-                <input id="payment-amount" type="number" min="0.01" step="0.01" value={reportedAmount} onChange={(e) => setReportedAmount(e.target.value)} disabled={sending} />
-              </div>
-              <div className="ff">
-                <label htmlFor="payment-reference">Número de referencia</label>
-                <input id="payment-reference" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} disabled={sending} />
+              <div className="wide-upload">
+                <input
+                  id="payment-receipt"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null
+                    if (file && file.size > 5 * 1024 * 1024) {
+                      setReceipt(null)
+                      setReportError('La captura no puede superar 5 MB.')
+                      event.target.value = ''
+                      return
+                    }
+                    setReportError('')
+                    setReceipt(file)
+                  }}
+                  disabled={sending}
+                />
+                {receiptPreview && (
+                  <div className="ff-img-preview pm-receipt-preview">
+                    <img src={receiptPreview} alt="Vista previa del comprobante" />
+                  </div>
+                )}
               </div>
             </div>
-            {reportError && <p className="login-error" role="alert"><i className="bi bi-exclamation-circle"></i> {reportError}</p>}
-            <div className="pm-actions">
+            <div className="ff">
+              <label htmlFor="payment-phone">Teléfono desde el que pagaste</label>
+              <input id="payment-phone" type="tel" value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} disabled={sending} />
+            </div>
+            <div className="ff">
+              <label htmlFor="payment-bank">Banco emisor</label>
+              <input id="payment-bank" value={payerBank} onChange={(e) => setPayerBank(e.target.value)} disabled={sending} />
+            </div>
+            <div className="ff">
+              <label htmlFor="payment-amount">Monto pagado</label>
+              <input id="payment-amount" type="number" min="0.01" step="0.01" value={reportedAmount} onChange={(e) => setReportedAmount(e.target.value)} disabled={sending} />
+            </div>
+            <div className="ff">
+              <label htmlFor="payment-reference">Número de referencia</label>
+              <input id="payment-reference" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} disabled={sending} />
+            </div>
+            {reportError && <p className="login-error wide-full" role="alert"><i className="bi bi-exclamation-circle"></i> {reportError}</p>}
+            <div className="pm-actions wide-full">
               <button type="button" className="btn btn-ghost" onClick={() => setReportOpen(false)} disabled={sending}>Volver</button>
               <button type="submit" className="btn btn-grad" disabled={sending || !items.length}>
                 {sending ? <><span className="spinner"></span> Guardando…</> : <><i className="bi bi-check2-circle"></i> Finalizar</>}

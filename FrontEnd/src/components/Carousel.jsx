@@ -21,13 +21,15 @@ const SLIDES = [
     filter: 'zarcillos',
   },
   {
-    img: cdn('/img/carousel-03.jpeg'),
-    alt: 'Modelo con accesorios hechos a mano',
+    img: cdn('/img/carousel-03.webp'),
+    alt: 'Modelo luciendo un zarcillo de soutache multicolor con cuentas',
     kicker: 'Collares',
     title: ['Capas de brillo'],
     text: 'Combina cadenas finas y colgantes únicos para un look inolvidable.',
     cta: 'Ver collares',
     filter: 'collares',
+    focus: '50% 42%',
+    align: 'right',
   },
   {
     img: cdn('/img/carousel-04.jpeg'),
@@ -57,13 +59,15 @@ const SLIDES = [
     filter: null,
   },
   {
-    img: cdn('/img/carousel-07.jpeg'),
-    alt: 'Modelo con aretes artesanales',
+    img: cdn('/img/carousel-07.webp'),
+    alt: 'Modelo con zarcillos soutache en un puesto de artesanías',
     kicker: 'Edición limitada',
     title: ['Piezas únicas'],
     text: 'Cada creación es diferente: hecha a mano, pensada para ti.',
     cta: 'Descubrir',
     filter: null,
+    focus: '50% 38%',
+    align: 'right',
   },
   {
     img: cdn('/img/carousel-08.jpeg'),
@@ -121,8 +125,8 @@ export default function Carousel({ onJump }) {
       <div className="carousel" id="heroCarousel" onMouseEnter={stopAuto} onMouseLeave={startAuto} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div className="carousel-track" style={{ transform: `translateX(-${current * 100}%)` }}>
           {SLIDES.map((s, i) => (
-            <article className="slide" key={i}>
-              <img src={s.img} alt={s.alt} />
+            <article className={`slide${s.align === 'right' ? ' slide-right' : ''}`} key={i}>
+              <img src={s.img} alt={s.alt} style={{ objectPosition: s.focus || 'center' }} />
               <div className="slide-content">
                 <p className="kicker">{s.kicker}</p>
                 {i === 0 ? <h1>{s.title}</h1> : <h2>{s.title}</h2>}

@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const { escapeHtml } = require('../utils/html');
 
 /* Clave de aplicación de Gmail (EMAIL_USER + EMAIL_PASS) o SMTP genérico */
 const EMAIL_USER = (process.env.EMAIL_USER || '').trim();
@@ -443,6 +444,112 @@ async function sendWelcomeEmail({ to, name, role = 'user', loginUrl, temporaryPa
   return { delivered: false, mode: 'smtp-error', error: lastError?.message };
 }
 
+/* -------------------------------------------------------------------------
+ * Contraseña nueva generada por la administración
+ * Se envía al CORREO REGISTRADO del usuario con la contraseña en claro:
+ * en la BD solo queda el hash bcrypt, así que es la única forma de que la
+ * persona pueda entrar. Devuelve { delivered, mode, error? }.
+ * ---------------------------------------------------------------------- */
+async function sendTemporaryPasswordEmail({
+  to,
+  name,
+  role = 'user',
+  temporaryPassword,
+  changedBy = null,
+}) {
+  const firstName = String(name || '').split(' ')[0] || '';
+  const esStaff = ['admin', 'empleado'].includes(String(role).toLowerCase());
+  const url = esStaff ? `${FRONT_URL}/#/login` : `${FRONT_URL}/#/acceder`;
+  const fecha = new Date().toLocaleString('es-VE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  const bodyHtml = `
+  <!-- ===== Contraseña nueva ===== -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #F6E3EC;border-radius:16px;overflow:hidden;">
+    <tr><td style="background:#FFF7EE;padding:20px 18px;text-align:center;font-family:Arial,Helvetica,sans-serif;">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9B93A5;margin-bottom:10px;">Contraseña temporal</div>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:26px;font-weight:bold;letter-spacing:3px;color:#2B2233;word-break:break-all;">${escapeHtml(temporaryPassword)}</div>
+    </td></tr>
+    <tr><td style="padding:4px 18px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;">
+        <tr>
+          <td style="padding:7px 0;font-size:12px;color:#9B93A5;text-transform:uppercase;letter-spacing:1px;">Cuenta</td>
+          <td align="right" style="padding:7px 0;font-size:13px;font-weight:bold;color:#2B2233;">${escapeHtml(to)}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-size:12px;color:#9B93A5;text-transform:uppercase;letter-spacing:1px;">Cambio hecho por</td>
+          <td align="right" style="padding:7px 0;font-size:13px;color:#6E6478;">${escapeHtml(changedBy || 'Administración')}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-size:12px;color:#9B93A5;text-transform:uppercase;letter-spacing:1px;">Fecha</td>
+          <td align="right" style="padding:7px 0;font-size:13px;color:#6E6478;">${escapeHtml(fecha)}</td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#6E6478;">
+    Entra con esta contraseña y <b>cámbiala de inmediato</b> desde tu perfil: las contraseñas
+    temporally son visibles para cualquiera que tenga acceso al correo.
+  </p>`;
+
+  const html = brandTemplate({
+    kicker: 'Contraseña nueva',
+    title: 'Hola' + (firstName ? ` ${escapeHtml(firstName)}` : '') + ', tu',
+    titleAccent: 'contraseña cambió',
+    intro:
+      'La administración de <b>AK Creaciones</b> restableció la contraseña de tu cuenta ' +
+      'y te la enviamos a este correo para que puedas entrar.',
+    bodyHtml,
+    ctaLabel: 'Iniciar sesión',
+    ctaUrl: url,
+    footerNote:
+      'Si no solicitaste este cambio, ignora este correo y avísanos: la contraseña antigua seguirá funcionando. ' +
+      'Nunca te pediremos tu contraseña por teléfono ni por WhatsApp.',
+  });
+
+  const subject = 'Tu nueva contraseña · AK Creaciones';
+
+  // Sin SMTP configurado no hay entrega real: el controlador revierte el cambio.
+  if (!transporter) {
+    console.error('✗ Contraseña nueva no enviada: SMTP no está configurado.');
+    return { delivered: false, mode: 'smtp-unconfigured', error: 'SMTP no está configurado' };
+  }
+
+  const text = [
+    `Hola ${firstName},`,
+    'La administración de AK Creaciones restableció tu contraseña.',
+    `Contraseña temporal: ${temporaryPassword}`,
+    `Cuenta: ${to}`,
+    `Inicia sesión aquí: ${url}`,
+    'Cámbiala de inmediato al entrar.',
+  ].join('\n\n');
+
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        to,
+        replyTo: SMTP_SENDER_EMAIL || undefined,
+        subject,
+        text,
+        html,
+      });
+      return { delivered: true, mode: 'smtp' };
+    } catch (err) {
+      lastError = err;
+      const permanent = err.code === 'EAUTH' || Number(err.responseCode) >= 500;
+      if (permanent || attempt === 3) break;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+
+  console.error('✗ Error enviando la contraseña nueva por SMTP:', lastError?.message || 'Error SMTP');
+  return { delivered: false, mode: 'smtp-error', error: lastError?.message };
+}
+
 /**
  * Notificación al correo de la empresa cuando se finiquita/finaliza una venta (Delivery o Pedidos).
  * Envía la factura con el desglose de productos y el aviso de que el stock ya fue descontado.
@@ -582,4 +689,11 @@ async function sendCompanyFinalSaleEmail({
   return { delivered: true, mode: 'dev', numPedido };
 }
 
-module.exports = { sendPasswordReset, sendOrderInvoice, sendWelcomeEmail, sendCompanyFinalSaleEmail, FRONT_URL };
+module.exports = {
+  sendPasswordReset,
+  sendOrderInvoice,
+  sendWelcomeEmail,
+  sendTemporaryPasswordEmail,
+  sendCompanyFinalSaleEmail,
+  FRONT_URL,
+};
